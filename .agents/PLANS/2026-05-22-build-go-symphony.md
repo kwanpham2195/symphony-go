@@ -25,8 +25,9 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 - [x] 2026-05-22: Created new local repository at `/Users/kwanpham/Work/symphony-go`.
 - [x] 2026-05-22: Captured initial user decisions: Linear only, high-trust auto-approve, local workers first.
 - [x] 2026-05-22: Updated target from core-only v1 to Elixir feature parity.
-- [ ] Initialize Go module and baseline CLI.
-- [ ] Implement workflow and config layer.
+- [x] 2026-05-22: Initialize Go module and baseline CLI.
+- [x] 2026-05-22: Implement workflow and config layer (parsing, defaults, env resolution, validation).
+- [x] 2026-05-22: Implement Liquid prompt template engine with strict nil semantics.
 - [ ] Implement Linear read adapter.
 - [ ] Implement workspace manager and hooks.
 - [ ] Implement Codex app-server client.
@@ -54,6 +55,12 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 - Observation: Likely dependency candidates are available through Go modules.
   Evidence: `GO111MODULE=on go list -m -versions gopkg.in/yaml.v3` returned `v3.0.0 v3.0.1`; `github.com/fsnotify/fsnotify` returned versions through `v1.10.1`; `github.com/osteele/liquid` returned versions through `v1.8.1`.
 
+- Observation: Liquid (osteele/liquid) treats empty string as truthy, matching Ruby semantics.
+  Evidence: `{% if issue.description %}` with description="" rendered the truthy branch. Fixed by mapping empty Go strings to nil in template bindings.
+
+- Observation: Go 1.25.0 is the local stable Go version.
+  Evidence: `go version` returned `go1.25.0 darwin/arm64`.
+
 ## Decision Log
 
 - Decision: Put the new project at `/Users/kwanpham/Work/symphony-go`.
@@ -78,7 +85,22 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 
 ## Outcomes & Retrospective
 
-No implementation outcome yet. This plan creates the source of truth for implementation. Update this section after each milestone with what worked, what changed, and what remains.
+### Milestone 1 (2026-05-22)
+
+Status: complete.
+
+What worked:
+- YAML front matter parsing with gopkg.in/yaml.v3 is straightforward.
+- osteele/liquid handles Liquid template syntax well, including {% if %} and {{ }}.
+- Config layer covers all spec fields with correct defaults and env resolution.
+- CLI --validate-only prints useful summary and exits nonzero on errors.
+
+What changed:
+- Prompt engine added in M1 instead of waiting for a separate step (it was cheap to do together).
+- Empty string fields (description, url, branch_name) must be converted to nil in Liquid bindings because Liquid treats empty string as truthy (Ruby semantics).
+
+What remains:
+- Linear read adapter (M2), workspace manager (M3), codex client (M4), orchestrator (M5), CLI wiring (M6), dashboard/API (M7), linear_graphql tool (M8), SSH workers (M9), smoke tests (M10).
 
 ## Context and Orientation
 
