@@ -102,8 +102,6 @@ When `--port` or `server.port` is set, the HTTP server exposes:
 go test ./...
 ```
 
-151 tests cover: workflow parsing, config defaults and validation, Linear GraphQL normalization with fixtures, workspace path safety and hooks, Codex protocol handshake and turn lifecycle, orchestrator dispatch/retry/reconciliation, HTTP API responses, linear_graphql tool, and worker pool capacity.
-
 ## Config Reference
 
 | Field | Default | Description |

@@ -5,23 +5,21 @@ Go implementation of [Symphony](https://github.com/openai/symphony) — a schedu
 ## Build / Test
 
 ```bash
-GO111MODULE=on go test ./...
-GO111MODULE=on go vet ./...
-GO111MODULE=on go build ./...
+go test ./...
+go vet ./...
+go build ./...
 ```
-
-The shell may have `GO111MODULE=off`. Always prefix Go commands with `GO111MODULE=on`.
 
 Run a single package:
 
 ```bash
-GO111MODULE=on go test ./internal/orchestrator/...
+go test ./internal/orchestrator/...
 ```
 
 Validate a workflow file without starting the service:
 
 ```bash
-LINEAR_API_KEY=... GO111MODULE=on go run ./cmd/symphony --validate-only ./testdata/workflows/minimal.md
+LINEAR_API_KEY=... go run ./cmd/symphony --validate-only ./testdata/workflows/minimal.md
 ```
 
 ## Architecture
