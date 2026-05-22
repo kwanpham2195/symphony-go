@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/matthew-opn/symphony-go/internal/config"
-	"github.com/matthew-opn/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/config"
+	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 // unsafeChars matches anything not in [A-Za-z0-9._-].

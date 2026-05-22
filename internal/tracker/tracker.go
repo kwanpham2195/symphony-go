@@ -4,7 +4,7 @@ package tracker
 import (
 	"context"
 
-	"github.com/matthew-opn/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 // Tracker is the read-only interface for issue tracker adapters. Symphony is a

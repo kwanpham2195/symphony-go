@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/matthew-opn/symphony-go/internal/config"
-	"github.com/matthew-opn/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/config"
+	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 func testdataPath(name string) string {

@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/matthew-opn/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/domain"
 	"gopkg.in/yaml.v3"
 )
 

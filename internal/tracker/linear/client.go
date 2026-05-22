@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/matthew-opn/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 const (

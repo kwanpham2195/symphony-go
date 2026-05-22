@@ -1,4 +1,4 @@
-module github.com/matthew-opn/symphony-go
+module github.com/kwanpham2195/symphony-go
 
 go 1.25.0
 

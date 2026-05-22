@@ -8,11 +8,11 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/matthew-opn/symphony-go/internal/codex"
-	"github.com/matthew-opn/symphony-go/internal/config"
-	"github.com/matthew-opn/symphony-go/internal/domain"
-	"github.com/matthew-opn/symphony-go/internal/workflow"
-	"github.com/matthew-opn/symphony-go/internal/workspace"
+	"github.com/kwanpham2195/symphony-go/internal/codex"
+	"github.com/kwanpham2195/symphony-go/internal/config"
+	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/workflow"
+	"github.com/kwanpham2195/symphony-go/internal/workspace"
 )
 
 // Runner implements the orchestrator.AgentRunner interface.
