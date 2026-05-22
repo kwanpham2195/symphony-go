@@ -24,6 +24,7 @@ import (
 	"github.com/matthew-opn/symphony-go/internal/observability"
 	"github.com/matthew-opn/symphony-go/internal/orchestrator"
 	"github.com/matthew-opn/symphony-go/internal/runner"
+	"github.com/matthew-opn/symphony-go/internal/server"
 	linearClient "github.com/matthew-opn/symphony-go/internal/tracker/linear"
 	"github.com/matthew-opn/symphony-go/internal/workflow"
 	"github.com/matthew-opn/symphony-go/internal/workspace"
@@ -114,6 +115,20 @@ func main() {
 		"poll_interval_ms", cfg.Polling.IntervalMS,
 		"max_agents", cfg.Agent.MaxConcurrentAgents,
 	)
+
+	// Start HTTP server if configured
+	if cfg.Server.Port > 0 {
+		srv := server.New(orch, orch, server.Options{
+			Port: cfg.Server.Port,
+			Host: cfg.Server.Host,
+		}, logger)
+
+		go func() {
+			if err := srv.ListenAndServe(ctx); err != nil {
+				logger.Error("http server error", "error", err)
+			}
+		}()
+	}
 
 	if err := orch.Start(ctx); err != nil && err != context.Canceled {
 		fatal("orchestrator: %v", err)
