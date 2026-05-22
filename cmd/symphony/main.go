@@ -8,20 +8,32 @@
 //
 //	--validate-only  Load and validate the workflow, then exit.
 //	--port PORT      Enable HTTP server on PORT (overrides server.port in workflow).
+//	--once           Run a single poll cycle then exit.
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
+	"github.com/matthew-opn/symphony-go/internal/codex"
 	"github.com/matthew-opn/symphony-go/internal/config"
+	"github.com/matthew-opn/symphony-go/internal/observability"
+	"github.com/matthew-opn/symphony-go/internal/orchestrator"
+	"github.com/matthew-opn/symphony-go/internal/runner"
+	linearClient "github.com/matthew-opn/symphony-go/internal/tracker/linear"
 	"github.com/matthew-opn/symphony-go/internal/workflow"
+	"github.com/matthew-opn/symphony-go/internal/workspace"
 )
 
 func main() {
 	args := parseArgs(os.Args[1:])
+	logger := observability.NewTextLogger()
 
+	// Load workflow
 	path, err := workflow.ResolvePath(args.workflowPath)
 	if err != nil {
 		fatal("resolve workflow path: %v", err)
@@ -60,13 +72,57 @@ func main() {
 		os.Exit(0)
 	}
 
-	// TODO: start orchestrator loop (Milestone 5+)
-	fmt.Println("symphony: orchestrator not yet implemented")
-	os.Exit(0)
+	// Build components
+	tracker := linearClient.NewClient(cfg.Tracker.Endpoint, cfg.Tracker.APIKey, cfg.Tracker.ProjectSlug)
+	wsMgr := workspace.NewManager(cfg, logger)
+	codexClient := codex.NewClient(cfg, logger)
+	agentRunner := runner.New(cfg, wsMgr, codexClient, wf.PromptTemplate, logger)
+
+	orch := orchestrator.New(orchestrator.Deps{
+		Tracker:   tracker,
+		Workspace: wsMgr,
+		Runner:    agentRunner,
+		Config:    cfg,
+		Logger:    logger,
+	})
+
+	if args.once {
+		logger.Info("running single poll cycle", "workflow", path)
+		ctx := context.Background()
+		orch.Tick(ctx)
+		logger.Info("single poll cycle complete")
+		os.Exit(0)
+	}
+
+	// Start orchestrator with signal handling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigCh
+		logger.Info("received signal; shutting down", "signal", sig)
+		cancel()
+	}()
+
+	logger.Info("starting symphony",
+		"workflow", path,
+		"tracker", cfg.Tracker.Kind,
+		"project", cfg.Tracker.ProjectSlug,
+		"poll_interval_ms", cfg.Polling.IntervalMS,
+		"max_agents", cfg.Agent.MaxConcurrentAgents,
+	)
+
+	if err := orch.Start(ctx); err != nil && err != context.Canceled {
+		fatal("orchestrator: %v", err)
+	}
 }
 
 type cliArgs struct {
 	validateOnly bool
+	once         bool
 	port         int
 	workflowPath string
 }
@@ -77,6 +133,8 @@ func parseArgs(args []string) cliArgs {
 		switch args[i] {
 		case "--validate-only":
 			result.validateOnly = true
+		case "--once":
+			result.once = true
 		case "--port":
 			if i+1 < len(args) {
 				i++
@@ -106,6 +164,7 @@ func printUsage() {
 
 Flags:
   --validate-only  Load and validate the workflow, then exit.
+  --once           Run a single poll cycle, then exit.
   --port PORT      Enable HTTP server on PORT.
   --help, -h       Show this help.
 
