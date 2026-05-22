@@ -53,7 +53,7 @@ func fakeDoRequest(responses []fakeResponse, requestLog *[]map[string]any) func(
 }
 
 func newTestClient(doReq func(*http.Request) (*http.Response, error)) *Client {
-	c := NewClient("https://api.linear.app/graphql", "test-token", "test-project")
+	c := NewClient("https://api.linear.app/graphql", "test-token", "test-project", []string{"Todo", "In Progress"})
 	c.DoRequest = doReq
 	return c
 }

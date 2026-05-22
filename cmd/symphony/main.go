@@ -74,7 +74,7 @@ func main() {
 	}
 
 	// Build components
-	tracker := linearClient.NewClient(cfg.Tracker.Endpoint, cfg.Tracker.APIKey, cfg.Tracker.ProjectSlug)
+	tracker := linearClient.NewClient(cfg.Tracker.Endpoint, cfg.Tracker.APIKey, cfg.Tracker.ProjectSlug, cfg.Tracker.ActiveStates)
 	wsMgr := workspace.NewManager(cfg, logger)
 	codexClient := codex.NewClient(cfg, logger)
 	agentRunner := runner.New(cfg, wsMgr, codexClient, wf.PromptTemplate, logger)

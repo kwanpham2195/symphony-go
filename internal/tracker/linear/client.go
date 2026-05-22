@@ -86,10 +86,11 @@ query SymphonyLinearIssuesById($ids: [ID!]!, $first: Int!, $relationFirst: Int!)
 
 // Client is a Linear GraphQL client.
 type Client struct {
-	Endpoint    string
-	APIKey      string
-	ProjectSlug string
-	HTTPClient  *http.Client
+	Endpoint     string
+	APIKey       string
+	ProjectSlug  string
+	ActiveStates []string
+	HTTPClient   *http.Client
 
 	// DoRequest is an optional override for HTTP request execution.
 	// Used in tests to inject fake responses.
@@ -97,11 +98,12 @@ type Client struct {
 }
 
 // NewClient creates a Linear client from config values.
-func NewClient(endpoint, apiKey, projectSlug string) *Client {
+func NewClient(endpoint, apiKey, projectSlug string, activeStates []string) *Client {
 	return &Client{
-		Endpoint:    endpoint,
-		APIKey:      apiKey,
-		ProjectSlug: projectSlug,
+		Endpoint:     endpoint,
+		APIKey:       apiKey,
+		ProjectSlug:  projectSlug,
+		ActiveStates: activeStates,
 		HTTPClient: &http.Client{
 			Timeout: networkTimeout,
 		},
@@ -110,7 +112,7 @@ func NewClient(endpoint, apiKey, projectSlug string) *Client {
 
 // FetchCandidateIssues returns issues in active states for the project.
 func (c *Client) FetchCandidateIssues(ctx context.Context) ([]domain.Issue, error) {
-	return c.fetchByStates(ctx, nil) // nil = use default active states from caller
+	return c.fetchByStates(ctx, c.ActiveStates)
 }
 
 // FetchCandidateIssuesWithStates returns issues in the given states for the
