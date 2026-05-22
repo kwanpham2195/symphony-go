@@ -28,15 +28,15 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 - [x] 2026-05-22: Initialize Go module and baseline CLI.
 - [x] 2026-05-22: Implement workflow and config layer (parsing, defaults, env resolution, validation).
 - [x] 2026-05-22: Implement Liquid prompt template engine with strict nil semantics.
-- [ ] Implement Linear read adapter.
-- [ ] Implement workspace manager and hooks.
-- [ ] Implement Codex app-server client.
-- [ ] Implement orchestrator loop, retry, and reconciliation.
-- [ ] Add structured logs and a minimal snapshot surface.
-- [ ] Add dashboard and JSON status API.
-- [ ] Add `linear_graphql` dynamic tool.
-- [ ] Add SSH worker pool after local workers are stable.
-- [ ] Run core conformance tests and one real Linear smoke test if credentials are available.
+- [x] 2026-05-22: Implement Linear read adapter (M2).
+- [x] 2026-05-22: Implement workspace manager and hooks (M3).
+- [x] 2026-05-22: Implement Codex app-server client (M4).
+- [x] 2026-05-22: Implement orchestrator loop, retry, and reconciliation (M5).
+- [x] 2026-05-22: Wire CLI with agent runner and signal handling (M6).
+- [x] 2026-05-22: Add dashboard and JSON status API (M7).
+- [x] 2026-05-22: Add `linear_graphql` dynamic tool (M8).
+- [ ] Add SSH worker pool after local workers are stable (M9).
+- [ ] Run core conformance tests and one real Linear smoke test if credentials are available (M10).
 
 ## Surprises & Discoveries
 
@@ -85,9 +85,9 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 
 ## Outcomes & Retrospective
 
-### Milestone 1 (2026-05-22)
+### Milestones 1-8 (2026-05-22)
 
-Status: complete.
+Status: complete (M1-M8).
 
 What worked:
 - YAML front matter parsing with gopkg.in/yaml.v3 is straightforward.
