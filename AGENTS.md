@@ -60,13 +60,7 @@ The orchestrator depends on interfaces (`Tracker`, `WorkspaceManager`, `AgentRun
 
 ## Upstream Reference
 
-Upstream Elixir source is cached at:
-
-```
-/Users/kwanpham/.opensrc/repos/github.com/openai/symphony/main
-```
-
-Key files: `SPEC.md`, `elixir/lib/symphony_elixir/orchestrator.ex`, `elixir/lib/symphony_elixir/codex/app_server.ex`, `elixir/lib/symphony_elixir/linear/client.ex`.
+Upstream reference: [openai/symphony](https://github.com/openai/symphony). Key files: `SPEC.md`, `elixir/lib/symphony_elixir/orchestrator.ex`, `elixir/lib/symphony_elixir/codex/app_server.ex`, `elixir/lib/symphony_elixir/linear/client.ex`.
 
 ## ExecPlan
 

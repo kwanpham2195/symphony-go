@@ -20,7 +20,7 @@ agent:
   max_concurrent_agents: 1
   max_turns: 1
 codex:
-  command: /Users/kwanpham/Work/symphony-go/testdata/fake-codex/smoke.sh
+  command: ./testdata/fake-codex/smoke.sh
 ---
 You are working on issue {{ issue.identifier }}: {{ issue.title }}.
 
