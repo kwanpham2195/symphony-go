@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,11 +22,14 @@ func (f *fakeSnapshotProvider) Snapshot() domain.Snapshot {
 }
 
 type fakeRefresher struct {
+	mu     sync.Mutex
 	called bool
 }
 
 func (f *fakeRefresher) Tick(_ context.Context) {
+	f.mu.Lock()
 	f.called = true
+	f.mu.Unlock()
 }
 
 func testServer(snap domain.Snapshot) *Server {
@@ -217,7 +221,10 @@ func TestRefresh_POST(t *testing.T) {
 
 	// Give goroutine time
 	time.Sleep(50 * time.Millisecond)
-	if !refresher.called {
+	refresher.mu.Lock()
+	called := refresher.called
+	refresher.mu.Unlock()
+	if !called {
 		t.Error("expected refresh to be called")
 	}
 }
