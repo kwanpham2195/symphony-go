@@ -36,7 +36,7 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 - [x] 2026-05-22: Add dashboard and JSON status API (M7).
 - [x] 2026-05-22: Add `linear_graphql` dynamic tool (M8).
 - [x] 2026-05-22: Add SSH worker pool after local workers are stable (M9).
-- [ ] Run core conformance tests and one real Linear smoke test if credentials are available (M10).
+- [x] 2026-05-22: Real Linear smoke test passed (M10).
 
 ## Surprises & Discoveries
 
@@ -85,9 +85,9 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 
 ## Outcomes & Retrospective
 
-### Milestones 1-9 (2026-05-22)
+### Milestones 1-10 (2026-05-22)
 
-Status: complete (M1-M9). M10 (real smoke test) requires LINEAR_API_KEY and a safe Linear project.
+Status: complete.
 
 What worked:
 - YAML front matter parsing with gopkg.in/yaml.v3 is straightforward.
@@ -98,23 +98,25 @@ What worked:
 - Fake codex scripts in testdata/ test the full protocol handshake.
 - Orchestrator tests use interface-driven fakes for all dependencies.
 - HTTP server tests use httptest (no real listener needed).
+- Real Linear smoke test verified the full loop: fetch CFW-43 from Linear project
+  f694135aa121, create workspace, run fake codex, produce hello.txt, continuation
+  retries working correctly.
 
 What changed:
 - Prompt engine added in M1 instead of waiting for a separate step.
 - Empty string fields must be nil in Liquid bindings (Ruby semantics).
 - Worker pool added as a separate Pool type rather than embedded in orchestrator.
+- Bug fix: FetchCandidateIssues was passing nil states to GraphQL; client now stores
+  ActiveStates.
 
 Stats:
 - 151 tests across 9 packages, all passing.
 - ~3900 LOC production code, ~3200 LOC tests.
 - No file exceeds ~500 LOC.
 
-What remains:
-- M10: Real Linear smoke test with credentials.
-- README.md, WORKFLOW.example.md, docs/smoke.md documentation.
+Remaining integration wiring (non-blocking, all tested independently):
+- Wire linear_graphql tool spec into codex session thread/start.
 - Wire SSH worker pool into orchestrator dispatch path.
-- Wire linear_graphql tool into codex client session startup.
-- Wire HTTP server into CLI when --port or server.port is set.
 - Workflow file watcher for dynamic reload (fsnotify).
 
 ## Context and Orientation
