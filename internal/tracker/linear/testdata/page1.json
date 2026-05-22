@@ -1,0 +1,26 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "id": "issue-1",
+          "identifier": "SYM-1",
+          "title": "First issue",
+          "description": "Fix the bug",
+          "priority": 1,
+          "state": { "name": "Todo" },
+          "branchName": null,
+          "url": null,
+          "labels": { "nodes": [] },
+          "inverseRelations": { "nodes": [] },
+          "createdAt": "2026-01-15T10:00:00Z",
+          "updatedAt": "2026-01-16T12:00:00Z"
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": true,
+        "endCursor": "cursor-page-2"
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "id": "issue-1",
+          "identifier": "SYM-1",
+          "title": "First",
+          "state": { "name": "Done" },
+          "labels": { "nodes": [] },
+          "inverseRelations": { "nodes": [] }
+        },
+        {
+          "id": "issue-2",
+          "identifier": "SYM-2",
+          "title": "Second",
+          "state": { "name": "In Progress" },
+          "labels": { "nodes": [] },
+          "inverseRelations": { "nodes": [] }
+        }
+      ]
+    }
+  }
+}

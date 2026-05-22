@@ -1,0 +1,51 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "id": "issue-1",
+          "identifier": "SYM-1",
+          "title": "First issue",
+          "description": "Fix the bug",
+          "priority": 1,
+          "state": { "name": "Todo" },
+          "branchName": "sym-1-fix-bug",
+          "url": "https://linear.app/team/SYM-1",
+          "labels": { "nodes": [{ "name": "Bug" }, { "name": "Urgent" }] },
+          "inverseRelations": { "nodes": [] },
+          "createdAt": "2026-01-15T10:00:00Z",
+          "updatedAt": "2026-01-16T12:00:00Z"
+        },
+        {
+          "id": "issue-2",
+          "identifier": "SYM-2",
+          "title": "Second issue",
+          "description": null,
+          "priority": 2,
+          "state": { "name": "In Progress" },
+          "branchName": null,
+          "url": "https://linear.app/team/SYM-2",
+          "labels": { "nodes": [] },
+          "inverseRelations": {
+            "nodes": [
+              {
+                "type": "blocks",
+                "issue": {
+                  "id": "blocker-1",
+                  "identifier": "SYM-10",
+                  "state": { "name": "In Progress" }
+                }
+              }
+            ]
+          },
+          "createdAt": "2026-01-14T09:00:00Z",
+          "updatedAt": "2026-01-15T11:00:00Z"
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  }
+}

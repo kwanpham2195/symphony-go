@@ -1,0 +1,26 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "id": "issue-2",
+          "identifier": "SYM-2",
+          "title": "Second issue",
+          "description": null,
+          "priority": 3,
+          "state": { "name": "In Progress" },
+          "branchName": null,
+          "url": null,
+          "labels": { "nodes": [] },
+          "inverseRelations": { "nodes": [] },
+          "createdAt": "2026-01-14T09:00:00Z",
+          "updatedAt": null
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  }
+}
