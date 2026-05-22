@@ -35,7 +35,7 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 - [x] 2026-05-22: Wire CLI with agent runner and signal handling (M6).
 - [x] 2026-05-22: Add dashboard and JSON status API (M7).
 - [x] 2026-05-22: Add `linear_graphql` dynamic tool (M8).
-- [ ] Add SSH worker pool after local workers are stable (M9).
+- [x] 2026-05-22: Add SSH worker pool after local workers are stable (M9).
 - [ ] Run core conformance tests and one real Linear smoke test if credentials are available (M10).
 
 ## Surprises & Discoveries
@@ -85,22 +85,37 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 
 ## Outcomes & Retrospective
 
-### Milestones 1-8 (2026-05-22)
+### Milestones 1-9 (2026-05-22)
 
-Status: complete (M1-M8).
+Status: complete (M1-M9). M10 (real smoke test) requires LINEAR_API_KEY and a safe Linear project.
 
 What worked:
 - YAML front matter parsing with gopkg.in/yaml.v3 is straightforward.
 - osteele/liquid handles Liquid template syntax well, including {% if %} and {{ }}.
 - Config layer covers all spec fields with correct defaults and env resolution.
 - CLI --validate-only prints useful summary and exits nonzero on errors.
+- Fixture-driven Linear tests cover all normalization and error paths without network.
+- Fake codex scripts in testdata/ test the full protocol handshake.
+- Orchestrator tests use interface-driven fakes for all dependencies.
+- HTTP server tests use httptest (no real listener needed).
 
 What changed:
-- Prompt engine added in M1 instead of waiting for a separate step (it was cheap to do together).
-- Empty string fields (description, url, branch_name) must be converted to nil in Liquid bindings because Liquid treats empty string as truthy (Ruby semantics).
+- Prompt engine added in M1 instead of waiting for a separate step.
+- Empty string fields must be nil in Liquid bindings (Ruby semantics).
+- Worker pool added as a separate Pool type rather than embedded in orchestrator.
+
+Stats:
+- 151 tests across 9 packages, all passing.
+- ~3900 LOC production code, ~3200 LOC tests.
+- No file exceeds ~500 LOC.
 
 What remains:
-- Linear read adapter (M2), workspace manager (M3), codex client (M4), orchestrator (M5), CLI wiring (M6), dashboard/API (M7), linear_graphql tool (M8), SSH workers (M9), smoke tests (M10).
+- M10: Real Linear smoke test with credentials.
+- README.md, WORKFLOW.example.md, docs/smoke.md documentation.
+- Wire SSH worker pool into orchestrator dispatch path.
+- Wire linear_graphql tool into codex client session startup.
+- Wire HTTP server into CLI when --port or server.port is set.
+- Workflow file watcher for dynamic reload (fsnotify).
 
 ## Context and Orientation
 
