@@ -1,0 +1,27 @@
+# Binaries
+symphony
+*.exe
+*.test
+*.out
+
+# Go
+vendor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.iml
+
+# Debug
+__debug_bin*
+
+# Local agent state
+.agents/
+.pi/
