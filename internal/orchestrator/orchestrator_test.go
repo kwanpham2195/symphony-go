@@ -92,13 +92,15 @@ type fakeRunner struct {
 	runs     []string // issue IDs
 	runErr   error
 	delay    time.Duration
+	blockCh  chan struct{} // if non-nil, blocks until closed (after sending update)
 }
 
-func (f *fakeRunner) Run(_ context.Context, issue domain.Issue, _ *int, updates chan<- domain.AgentUpdate) error {
+func (f *fakeRunner) Run(ctx context.Context, issue domain.Issue, _ *int, updates chan<- domain.AgentUpdate) error {
 	f.mu.Lock()
 	f.runs = append(f.runs, issue.ID)
 	delay := f.delay
 	runErr := f.runErr
+	blockCh := f.blockCh
 	f.mu.Unlock()
 
 	if delay > 0 {
@@ -109,6 +111,14 @@ func (f *fakeRunner) Run(_ context.Context, issue domain.Issue, _ *int, updates 
 		Event:     "session_started",
 		Timestamp: time.Now().UTC(),
 		SessionID: "test-session",
+	}
+
+	if blockCh != nil {
+		select {
+		case <-blockCh:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 
 	if runErr != nil {
@@ -558,7 +568,142 @@ func TestSnapshot_Empty(t *testing.T) {
 	}
 }
 
-// --- Failure retry test ---
+// --- TurnCount test ---
+
+func TestHandleAgentUpdate_TurnCountStartsAtOne(t *testing.T) {
+	tracker := &fakeTracker{
+		candidates: []domain.Issue{
+			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
+		},
+	}
+	blockCh := make(chan struct{})
+	runner := &fakeRunner{blockCh: blockCh}
+
+	o := New(Deps{
+		Tracker:   tracker,
+		Workspace: &fakeWorkspace{},
+		Runner:    runner,
+		Config:    testCfg(),
+	})
+
+	o.Tick(context.Background())
+	// Wait for update to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	o.mu.Lock()
+	entry, ok := o.running["id-1"]
+	turnCount := 0
+	if ok {
+		turnCount = entry.TurnCount
+	}
+	o.mu.Unlock()
+
+	// Unblock the runner
+	close(blockCh)
+
+	if !ok {
+		t.Fatal("expected running entry for id-1")
+	}
+	// After first session_started event, TurnCount should be 1
+	if turnCount != 1 {
+		t.Errorf("TurnCount = %d after first turn, want 1", turnCount)
+	}
+}
+
+// --- Shutdown safety test ---
+
+func TestHandleRetry_RespectsShutdown(t *testing.T) {
+	tracker := &fakeTracker{
+		candidates: []domain.Issue{
+			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
+		},
+	}
+	blockCh := make(chan struct{})
+	runner := &fakeRunner{blockCh: blockCh}
+
+	cfg := testCfg()
+	o := New(Deps{
+		Tracker:   tracker,
+		Workspace: &fakeWorkspace{},
+		Runner:    runner,
+		Config:    cfg,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	o.Tick(ctx)
+	time.Sleep(50 * time.Millisecond)
+
+	// Simulate agent completing (unblock) -> schedules retry
+	close(blockCh)
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify retry is scheduled
+	o.mu.Lock()
+	hasRetry := len(o.retryAttempts) > 0
+	o.mu.Unlock()
+	if !hasRetry {
+		t.Fatal("expected retry to be scheduled after completion")
+	}
+
+	// Shutdown: cancel context and stop all
+	cancel()
+	o.stopAll()
+
+	// Wait for retry timer to fire (continuation delay is 1s)
+	time.Sleep(1500 * time.Millisecond)
+
+	// After shutdown, no new dispatch should have happened
+	runner.mu.Lock()
+	runCount := len(runner.runs)
+	runner.mu.Unlock()
+
+	// Should have exactly 1 run (the original), not 2 (no retry after shutdown)
+	if runCount != 1 {
+		t.Errorf("expected 1 run (no retry after shutdown), got %d", runCount)
+	}
+}
+
+func TestHandleRetry_StoppedGuard(t *testing.T) {
+	// Directly test that handleRetry does not dispatch after stopped=true.
+	tracker := &fakeTracker{
+		candidates: []domain.Issue{
+			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
+		},
+	}
+	runner := &fakeRunner{}
+
+	o := New(Deps{
+		Tracker:   tracker,
+		Workspace: &fakeWorkspace{},
+		Runner:    runner,
+		Config:    testCfg(),
+	})
+
+	// Plant a retry entry manually
+	o.mu.Lock()
+	o.retryAttempts["id-1"] = &retryEntry{
+		IssueID:    "id-1",
+		Identifier: "SYM-1",
+		Attempt:    1,
+		DueAt:      time.Now(),
+	}
+	// Mark as stopped
+	o.stopped = true
+	o.mu.Unlock()
+
+	// Simulate the timer firing after shutdown
+	o.handleRetry("id-1", 1)
+
+	time.Sleep(100 * time.Millisecond)
+
+	runner.mu.Lock()
+	runCount := len(runner.runs)
+	runner.mu.Unlock()
+
+	if runCount != 0 {
+		t.Errorf("expected 0 runs after stopped, got %d", runCount)
+	}
+}
 
 func TestAgentFailure_SchedulesRetry(t *testing.T) {
 	tracker := &fakeTracker{

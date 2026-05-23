@@ -185,6 +185,8 @@ type Orchestrator struct {
 	endedSeconds   float64
 	stopCh         chan struct{}
 	stopped        bool
+	ctx            context.Context    // lifecycle context; cancelled on shutdown
+	cancelCtx      context.CancelFunc
 }
 
 // New creates an orchestrator from deps.
@@ -192,6 +194,7 @@ func New(deps Deps) *Orchestrator {
 	if deps.Logger == nil {
 		deps.Logger = slog.Default()
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Orchestrator{
 		deps:          deps,
 		logger:        deps.Logger,
@@ -200,6 +203,8 @@ func New(deps Deps) *Orchestrator {
 		retryAttempts: make(map[string]*retryEntry),
 		completed:     make(map[string]bool),
 		stopCh:        make(chan struct{}),
+		ctx:           ctx,
+		cancelCtx:     cancel,
 	}
 }
 
@@ -635,7 +640,11 @@ func (o *Orchestrator) handleAgentUpdate(issueID string, update domain.AgentUpda
 	entry.LastCodexTimestamp = &now
 
 	if update.SessionID != "" {
-		if entry.SessionID != "" && update.SessionID != entry.SessionID {
+		if entry.SessionID == "" {
+			// First session event: this is turn 1
+			entry.TurnCount = 1
+		} else if update.SessionID != entry.SessionID {
+			// New turn started
 			entry.TurnCount++
 		}
 		entry.SessionID = update.SessionID
@@ -694,9 +703,11 @@ func (o *Orchestrator) scheduleRetryLocked(issueID, identifier string, attempt i
 }
 
 func (o *Orchestrator) handleRetry(issueID string, attempt int) {
-	ctx := context.Background()
-
 	o.mu.Lock()
+	if o.stopped {
+		o.mu.Unlock()
+		return
+	}
 	retry, ok := o.retryAttempts[issueID]
 	if !ok || retry.Attempt != attempt {
 		o.mu.Unlock()
@@ -705,6 +716,8 @@ func (o *Orchestrator) handleRetry(issueID string, attempt int) {
 	identifier := retry.Identifier
 	delete(o.retryAttempts, issueID)
 	o.mu.Unlock()
+
+	ctx := o.ctx
 
 	// Fetch candidates to check if issue is still active
 	issues, err := o.deps.Tracker.FetchCandidateIssues(ctx)
@@ -808,6 +821,7 @@ func (o *Orchestrator) stopAll() {
 		delete(o.retryAttempts, id)
 	}
 	o.stopped = true
+	o.cancelCtx()
 }
 
 // --- sorting ---
