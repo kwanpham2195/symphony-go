@@ -85,11 +85,12 @@ func main() {
 	agentRunner := runner.New(cfg, wsMgr, codexClient, wf.PromptTemplate, logger)
 
 	orch := orchestrator.New(orchestrator.Deps{
-		Tracker:   tracker,
-		Workspace: wsMgr,
-		Runner:    agentRunner,
-		Config:    cfg,
-		Logger:    logger,
+		Tracker:    tracker,
+		Workspace:  wsMgr,
+		Runner:     agentRunner,
+		Config:     cfg,
+		Logger:     logger,
+		WorkerPool: orchestrator.NewWorkerPool(cfg.Worker.SSHHosts, cfg.Worker.MaxConcurrentAgentsPerHost),
 	})
 
 	if args.once {

@@ -56,6 +56,7 @@ type runningEntry struct {
 	CodexOutputTokens  int
 	CodexTotalTokens   int
 	TurnCount          int
+	WorkerHost         string // empty for local
 	cancel             context.CancelFunc
 }
 
@@ -71,11 +72,102 @@ type retryEntry struct {
 
 // Deps holds the orchestrator dependencies.
 type Deps struct {
-	Tracker   Tracker
-	Workspace WorkspaceManager
-	Runner    AgentRunner
-	Config    *config.Config
-	Logger    *slog.Logger
+	Tracker    Tracker
+	Workspace  WorkspaceManager
+	Runner     AgentRunner
+	Config     *config.Config
+	Logger     *slog.Logger
+	WorkerPool *WorkerPool // optional; nil = local only
+}
+
+// WorkerPool tracks SSH host capacity. Nil means local-only mode.
+type WorkerPool struct {
+	hosts                []string
+	maxConcurrentPerHost int
+	mu                   sync.Mutex
+	running              map[string]int // host -> count
+}
+
+// NewWorkerPool creates a pool from config. Returns nil if no SSH hosts.
+func NewWorkerPool(hosts []string, maxPerHost int) *WorkerPool {
+	if len(hosts) == 0 {
+		return nil
+	}
+	return &WorkerPool{
+		hosts:                hosts,
+		maxConcurrentPerHost: maxPerHost,
+		running:              make(map[string]int),
+	}
+}
+
+func (p *WorkerPool) selectHost(preferred string) (string, bool) {
+	if p == nil {
+		return "", true // local mode
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Try preferred host first
+	if preferred != "" {
+		for _, h := range p.hosts {
+			if h == preferred && p.hostHasCapacity(h) {
+				return h, true
+			}
+		}
+	}
+
+	// Least-loaded with capacity
+	var best string
+	bestCount := -1
+	for _, h := range p.hosts {
+		if !p.hostHasCapacity(h) {
+			continue
+		}
+		c := p.running[h]
+		if best == "" || c < bestCount {
+			best = h
+			bestCount = c
+		}
+	}
+	if best == "" {
+		return "", false
+	}
+	return best, true
+}
+
+func (p *WorkerPool) acquire(host string) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	p.running[host]++
+	p.mu.Unlock()
+}
+
+func (p *WorkerPool) release(host string) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	if p.running[host] > 0 {
+		p.running[host]--
+	}
+	p.mu.Unlock()
+}
+
+func (p *WorkerPool) hostHasCapacity(host string) bool {
+	if p.maxConcurrentPerHost <= 0 {
+		return true
+	}
+	return p.running[host] < p.maxConcurrentPerHost
+}
+
+func (p *WorkerPool) hasCapacity() bool {
+	if p == nil {
+		return true
+	}
+	_, ok := p.selectHost("")
+	return ok
 }
 
 // Orchestrator owns scheduling state.
@@ -387,6 +479,11 @@ func (o *Orchestrator) shouldDispatch(issue domain.Issue, activeSet, terminalSet
 		return false
 	}
 
+	// Worker pool capacity check
+	if o.deps.WorkerPool != nil && !o.deps.WorkerPool.hasCapacity() {
+		return false
+	}
+
 	// Todo blocker rule
 	if strings.ToLower(strings.TrimSpace(issue.State)) == "todo" {
 		for _, b := range issue.BlockedBy {
@@ -427,6 +524,18 @@ func (o *Orchestrator) availableSlots() int {
 }
 
 func (o *Orchestrator) dispatchIssue(ctx context.Context, issue domain.Issue, attempt *int) {
+	// Select worker host
+	var workerHost string
+	if o.deps.WorkerPool != nil {
+		var ok bool
+		workerHost, ok = o.deps.WorkerPool.selectHost("")
+		if !ok {
+			o.logger.Debug("no SSH worker capacity", "issue_identifier", issue.Identifier)
+			return
+		}
+		o.deps.WorkerPool.acquire(workerHost)
+	}
+
 	o.mu.Lock()
 	o.claimed[issue.ID] = true
 	// Remove from retry if being dispatched
@@ -439,10 +548,11 @@ func (o *Orchestrator) dispatchIssue(ctx context.Context, issue domain.Issue, at
 
 	workerCtx, cancel := context.WithCancel(ctx)
 	entry := &runningEntry{
-		Issue:     issue,
-		Attempt:   attempt,
-		StartedAt: time.Now(),
-		cancel:    cancel,
+		Issue:      issue,
+		Attempt:    attempt,
+		StartedAt:  time.Now(),
+		WorkerHost: workerHost,
+		cancel:     cancel,
 	}
 	o.running[issue.ID] = entry
 	o.mu.Unlock()
@@ -451,13 +561,21 @@ func (o *Orchestrator) dispatchIssue(ctx context.Context, issue domain.Issue, at
 		"issue_id", issue.ID,
 		"issue_identifier", issue.Identifier,
 		"attempt", attempt,
+		"worker_host", workerHost,
 	)
 
 	// Run agent in goroutine
-	go o.runAgent(workerCtx, issue, attempt)
+	go o.runAgent(workerCtx, issue, attempt, workerHost)
 }
 
-func (o *Orchestrator) runAgent(ctx context.Context, issue domain.Issue, attempt *int) {
+func (o *Orchestrator) runAgent(ctx context.Context, issue domain.Issue, attempt *int, workerHost string) {
+	// Release worker pool slot when done
+	defer func() {
+		if o.deps.WorkerPool != nil && workerHost != "" {
+			o.deps.WorkerPool.release(workerHost)
+		}
+	}()
+
 	updates := make(chan domain.AgentUpdate, 64)
 
 	// Process updates in background
