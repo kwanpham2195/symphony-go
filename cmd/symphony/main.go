@@ -20,6 +20,7 @@ import (
 	"syscall"
 
 	"github.com/kwanpham2195/symphony-go/internal/codex"
+	"github.com/kwanpham2195/symphony-go/internal/codex/tools"
 	"github.com/kwanpham2195/symphony-go/internal/config"
 	"github.com/kwanpham2195/symphony-go/internal/observability"
 	"github.com/kwanpham2195/symphony-go/internal/orchestrator"
@@ -77,6 +78,10 @@ func main() {
 	tracker := linearClient.NewClient(cfg.Tracker.Endpoint, cfg.Tracker.APIKey, cfg.Tracker.ProjectSlug, cfg.Tracker.ActiveStates)
 	wsMgr := workspace.NewManager(cfg, logger)
 	codexClient := codex.NewClient(cfg, logger)
+
+	// Register dynamic tools
+	codexClient.RegisterTool(tools.NewLinearGraphQL(tracker))
+
 	agentRunner := runner.New(cfg, wsMgr, codexClient, wf.PromptTemplate, logger)
 
 	orch := orchestrator.New(orchestrator.Deps{

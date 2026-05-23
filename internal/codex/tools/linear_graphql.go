@@ -51,19 +51,6 @@ func (t *LinearGraphQL) Spec() map[string]any {
 	}
 }
 
-// ToolResult is the result of a tool execution.
-type ToolResult struct {
-	Success      bool            `json:"success"`
-	Output       string          `json:"output"`
-	ContentItems []ContentItem   `json:"contentItems"`
-}
-
-// ContentItem is a single content item in a tool result.
-type ContentItem struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-}
-
 // Execute runs the linear_graphql tool.
 func (t *LinearGraphQL) Execute(ctx context.Context, args any) ToolResult {
 	// Parse arguments

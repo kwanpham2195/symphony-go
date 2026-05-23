@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kwanpham2195/symphony-go/internal/codex/tools"
 	"github.com/kwanpham2195/symphony-go/internal/config"
 	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
@@ -55,6 +56,7 @@ type Session struct {
 type Client struct {
 	cfg    *config.Config
 	logger *slog.Logger
+	tools  map[string]tools.Tool // registered dynamic tools
 }
 
 // NewClient creates a codex client.
@@ -62,7 +64,13 @@ func NewClient(cfg *config.Config, logger *slog.Logger) *Client {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Client{cfg: cfg, logger: logger}
+	return &Client{cfg: cfg, logger: logger, tools: make(map[string]tools.Tool)}
+}
+
+// RegisterTool adds a dynamic tool that will be advertised in thread/start
+// and dispatched on item/tool/call.
+func (c *Client) RegisterTool(t tools.Tool) {
+	c.tools[t.Name()] = t
 }
 
 // UpdateConfig replaces the config (for dynamic reload).
@@ -151,6 +159,15 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 		"approvalPolicy": c.cfg.Codex.ApprovalPolicy,
 		"sandbox":        c.cfg.Codex.ThreadSandbox,
 		"cwd":            workspace,
+	}
+
+	// Advertise dynamic tools
+	if len(c.tools) > 0 {
+		toolSpecs := make([]map[string]any, 0, len(c.tools))
+		for _, t := range c.tools {
+			toolSpecs = append(toolSpecs, t.Spec())
+		}
+		threadParams["dynamicTools"] = toolSpecs
 	}
 
 	if err := sess.send(map[string]any{
@@ -404,20 +421,41 @@ func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string
 			}
 
 		case "item/tool/call":
-			// Unsupported tool call: return failure and continue
+			// Dispatch to registered tool or return unsupported
+			params, _ := msg["params"].(map[string]any)
+			toolName := toolCallName(params)
 			id := msg["id"]
-			_ = sess.send(map[string]any{
-				"id": id,
-				"result": map[string]any{
-					"success": false,
-					"error":   "unsupported_tool_call",
-					"output":  "This tool is not supported in this session.",
-					"contentItems": []map[string]any{
-						{"type": "inputText", "text": "This tool is not supported in this session."},
+
+			if t, ok := c.tools[toolName]; ok {
+				arguments := toolCallArguments(params)
+				result := t.Execute(ctx, arguments)
+				_ = sess.send(map[string]any{
+					"id": id,
+					"result": map[string]any{
+						"success":      result.Success,
+						"output":       result.Output,
+						"contentItems": result.ContentItems,
 					},
-				},
-			})
-			c.emitUpdate(onUpdate, "unsupported_tool_call", sessionID, nil)
+				})
+				if result.Success {
+					c.emitUpdate(onUpdate, "tool_call_completed", sessionID, nil)
+				} else {
+					c.emitUpdate(onUpdate, "tool_call_failed", sessionID, nil)
+				}
+			} else {
+				_ = sess.send(map[string]any{
+					"id": id,
+					"result": map[string]any{
+						"success": false,
+						"error":   "unsupported_tool_call",
+						"output":  "This tool is not supported in this session.",
+						"contentItems": []map[string]any{
+							{"type": "inputText", "text": "This tool is not supported in this session."},
+						},
+					},
+				})
+				c.emitUpdate(onUpdate, "unsupported_tool_call", sessionID, nil)
+			}
 
 		case "item/tool/requestUserInput":
 			// High-trust: fail the run on user input request
@@ -523,6 +561,28 @@ func autoApproveDecision(method string) string {
 	default:
 		return "approved_for_session"
 	}
+}
+
+func toolCallName(params map[string]any) string {
+	if params == nil {
+		return ""
+	}
+	for _, key := range []string{"tool", "name"} {
+		if v, ok := params[key].(string); ok && strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func toolCallArguments(params map[string]any) any {
+	if params == nil {
+		return map[string]any{}
+	}
+	if v, ok := params["arguments"]; ok {
+		return v
+	}
+	return map[string]any{}
 }
 
 func isInputRequired(method string, msg map[string]any) bool {
