@@ -25,3 +25,7 @@ __debug_bin*
 # Local agent state
 .agents/
 .pi/
+
+# Override global gitignore — keep .codex/skills checked in
+!.codex/
+!.codex/skills/
