@@ -32,7 +32,7 @@ func NewWatcher(path string, onReload func(*domain.Workflow), logger *slog.Logge
 	}
 
 	if err := fsw.Add(path); err != nil {
-		fsw.Close()
+		_ = fsw.Close()
 		return nil, err
 	}
 
@@ -89,6 +89,6 @@ func (w *Watcher) reload() {
 func (w *Watcher) Close() {
 	w.once.Do(func() {
 		close(w.stopCh)
-		w.watcher.Close()
+		_ = w.watcher.Close()
 	})
 }

@@ -1,0 +1,32 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gocritic
+    - misspell
+    - errorlint
+
+  exclusions:
+    rules:
+      # Test files: allow unchecked errors for setup/teardown helpers
+      - path: _test\.go
+        linters:
+          - errcheck
+      # HTML dashboard writes to ResponseWriter are best-effort
+      - path: internal/server/server\.go
+        text: "fmt.Fprintf"
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  exclude-dirs:
+    - testdata

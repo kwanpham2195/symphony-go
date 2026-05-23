@@ -14,11 +14,11 @@ import (
 
 // Sentinel validation errors.
 var (
-	ErrMissingTrackerKind       = errors.New("missing tracker.kind")
-	ErrUnsupportedTrackerKind   = errors.New("unsupported tracker.kind")
-	ErrMissingTrackerAPIKey     = errors.New("missing tracker.api_key (set $LINEAR_API_KEY or tracker.api_key)")
+	ErrMissingTrackerKind        = errors.New("missing tracker.kind")
+	ErrUnsupportedTrackerKind    = errors.New("unsupported tracker.kind")
+	ErrMissingTrackerAPIKey      = errors.New("missing tracker.api_key (set $LINEAR_API_KEY or tracker.api_key)")
 	ErrMissingTrackerProjectSlug = errors.New("missing tracker.project_slug")
-	ErrMissingCodexCommand      = errors.New("missing codex.command")
+	ErrMissingCodexCommand       = errors.New("missing codex.command")
 )
 
 // Config is the typed runtime configuration for symphony.
@@ -305,7 +305,7 @@ func envRefName(value string) (string, bool) {
 	}
 	name := value[1:]
 	for _, c := range name {
-		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+		if (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_' {
 			return "", false
 		}
 	}

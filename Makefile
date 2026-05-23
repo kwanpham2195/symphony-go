@@ -16,8 +16,12 @@ test-race:
 vet:
 	go vet ./...
 
-# Full CI gate: vet + race tests
-check: vet test-race
+# Run golangci-lint
+lint:
+	golangci-lint run ./...
+
+# Full CI gate: lint + race tests
+check: lint test-race
 
 # Remove build artifacts
 clean:

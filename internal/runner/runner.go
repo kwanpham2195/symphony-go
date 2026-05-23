@@ -82,7 +82,7 @@ func (r *Runner) Run(ctx context.Context, issue domain.Issue, attempt *int, upda
 	if err != nil {
 		return fmt.Errorf("codex session start failed: %w", err)
 	}
-	defer r.codexC.StopSession(sess)
+	defer r.codexC.StopSession(sess) //nolint:errcheck // best-effort cleanup
 
 	// 4. Render prompt
 	rendered, err := workflow.RenderPrompt(r.getPrompt(), issue, attempt)

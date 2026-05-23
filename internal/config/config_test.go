@@ -66,7 +66,7 @@ func TestFromMap_Overrides(t *testing.T) {
 			"max_turns":             5,
 		},
 		"codex": map[string]any{
-			"command":        "custom-codex app-server",
+			"command":          "custom-codex app-server",
 			"stall_timeout_ms": 0,
 		},
 		"server": map[string]any{

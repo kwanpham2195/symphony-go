@@ -20,9 +20,9 @@ const defaultFileName = "WORKFLOW.md"
 
 // Sentinel errors returned by Load.
 var (
-	ErrMissingWorkflowFile      = errors.New("missing_workflow_file")
-	ErrWorkflowParseError       = errors.New("workflow_parse_error")
-	ErrFrontMatterNotAMap       = errors.New("workflow_front_matter_not_a_map")
+	ErrMissingWorkflowFile = errors.New("missing_workflow_file")
+	ErrWorkflowParseError  = errors.New("workflow_parse_error")
+	ErrFrontMatterNotAMap  = errors.New("workflow_front_matter_not_a_map")
 )
 
 // ResolvePath returns the workflow file path. If explicit is non-empty it wins;
@@ -42,7 +42,7 @@ func ResolvePath(explicit string) (string, error) {
 func Load(path string) (*domain.Workflow, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %v", ErrMissingWorkflowFile, path, err)
+		return nil, fmt.Errorf("%w: %s: %w", ErrMissingWorkflowFile, path, err)
 	}
 	return Parse(string(data))
 }
@@ -94,7 +94,7 @@ func parseFrontMatter(lines []string) (map[string]any, error) {
 
 	var decoded any
 	if err := yaml.Unmarshal([]byte(raw), &decoded); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrWorkflowParseError, err)
+		return nil, fmt.Errorf("%w: %w", ErrWorkflowParseError, err)
 	}
 
 	m, ok := decoded.(map[string]any)

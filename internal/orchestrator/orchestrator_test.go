@@ -59,10 +59,10 @@ func (f *fakeTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]
 }
 
 type fakeWorkspace struct {
-	mu       sync.Mutex
-	created  []string
-	removed  []string
-	hookErr  error
+	mu      sync.Mutex
+	created []string
+	removed []string
+	hookErr error
 }
 
 func (f *fakeWorkspace) CreateForIssue(_ context.Context, issue domain.Issue) (domain.Workspace, error) {
@@ -88,11 +88,11 @@ func (f *fakeWorkspace) RunBeforeRunHook(_ context.Context, _ domain.Workspace, 
 func (f *fakeWorkspace) RunAfterRunHook(_ context.Context, _ domain.Workspace, _ domain.Issue) {}
 
 type fakeRunner struct {
-	mu       sync.Mutex
-	runs     []string // issue IDs
-	runErr   error
-	delay    time.Duration
-	blockCh  chan struct{} // if non-nil, blocks until closed (after sending update)
+	mu      sync.Mutex
+	runs    []string // issue IDs
+	runErr  error
+	delay   time.Duration
+	blockCh chan struct{} // if non-nil, blocks until closed (after sending update)
 }
 
 func (f *fakeRunner) Run(ctx context.Context, issue domain.Issue, _ *int, updates chan<- domain.AgentUpdate) error {

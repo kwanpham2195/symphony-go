@@ -245,7 +245,7 @@ func (c *Client) doGraphQL(ctx context.Context, query string, variables map[stri
 	if err != nil {
 		return nil, fmt.Errorf("linear_api_request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -285,18 +285,18 @@ type graphQLError struct {
 }
 
 type rawIssue struct {
-	ID               string          `json:"id"`
-	Identifier       string          `json:"identifier"`
-	Title            string          `json:"title"`
-	Description      *string         `json:"description"`
-	Priority         *int            `json:"priority"`
-	State            *stateNode      `json:"state"`
-	BranchName       *string         `json:"branchName"`
-	URL              *string         `json:"url"`
-	Labels           *labelsWrapper  `json:"labels"`
-	InverseRelations *relationsWrap  `json:"inverseRelations"`
-	CreatedAt        *string         `json:"createdAt"`
-	UpdatedAt        *string         `json:"updatedAt"`
+	ID               string         `json:"id"`
+	Identifier       string         `json:"identifier"`
+	Title            string         `json:"title"`
+	Description      *string        `json:"description"`
+	Priority         *int           `json:"priority"`
+	State            *stateNode     `json:"state"`
+	BranchName       *string        `json:"branchName"`
+	URL              *string        `json:"url"`
+	Labels           *labelsWrapper `json:"labels"`
+	InverseRelations *relationsWrap `json:"inverseRelations"`
+	CreatedAt        *string        `json:"createdAt"`
+	UpdatedAt        *string        `json:"updatedAt"`
 }
 
 type stateNode struct {

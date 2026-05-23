@@ -32,7 +32,7 @@ const (
 
 // TurnResult describes how a turn ended.
 type TurnResult struct {
-	Status    string         // "completed", "failed", "cancelled", "timeout", "exit", "input_required"
+	Status    string // "completed", "failed", "cancelled", "timeout", "exit", "input_required"
 	SessionID string
 	ThreadID  string
 	TurnID    string
@@ -146,12 +146,12 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 			},
 		},
 	}); err != nil {
-		sess.Close()
+		_ = sess.Close()
 		return nil, fmt.Errorf("codex: send initialize: %w", err)
 	}
 
 	if _, err := sess.awaitResponse(initializeID, readTimeout); err != nil {
-		sess.Close()
+		_ = sess.Close()
 		return nil, fmt.Errorf("response_timeout: initialize: %w", err)
 	}
 
@@ -160,7 +160,7 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 		"method": "initialized",
 		"params": map[string]any{},
 	}); err != nil {
-		sess.Close()
+		_ = sess.Close()
 		return nil, fmt.Errorf("codex: send initialized: %w", err)
 	}
 
@@ -185,19 +185,19 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 		"method": "thread/start",
 		"params": threadParams,
 	}); err != nil {
-		sess.Close()
+		_ = sess.Close()
 		return nil, fmt.Errorf("codex: send thread/start: %w", err)
 	}
 
 	threadResult, err := sess.awaitResponse(threadStartID, readTimeout)
 	if err != nil {
-		sess.Close()
+		_ = sess.Close()
 		return nil, fmt.Errorf("response_timeout: thread/start: %w", err)
 	}
 
 	threadID, err := extractThreadID(threadResult)
 	if err != nil {
-		sess.Close()
+		_ = sess.Close()
 		return nil, err
 	}
 	sess.threadID = threadID
@@ -216,10 +216,10 @@ func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue,
 	turnSandboxPolicy := cfg.Codex.TurnSandboxPolicy
 	if turnSandboxPolicy == nil {
 		turnSandboxPolicy = map[string]any{
-			"type":            "workspaceWrite",
-			"writableRoots":   []string{sess.workspace},
-			"readOnlyAccess":  map[string]any{"type": "fullAccess"},
-			"networkAccess":   false,
+			"type":           "workspaceWrite",
+			"writableRoots":  []string{sess.workspace},
+			"readOnlyAccess": map[string]any{"type": "fullAccess"},
+			"networkAccess":  false,
 		}
 	}
 
@@ -314,16 +314,12 @@ func (s *Session) awaitResponse(requestID int, timeout time.Duration) (map[strin
 		}
 
 		// Check if this is our response
-		id, _ := msg["id"]
-		switch v := id.(type) {
-		case float64:
-			if int(v) == requestID {
-				if errField, ok := msg["error"]; ok {
-					return nil, fmt.Errorf("response_error: %v", errField)
-				}
-				result, _ := msg["result"].(map[string]any)
-				return result, nil
+		if v, ok := msg["id"].(float64); ok && int(v) == requestID {
+			if errField, ok := msg["error"]; ok {
+				return nil, fmt.Errorf("response_error: %v", errField)
 			}
+			result, _ := msg["result"].(map[string]any)
+			return result, nil
 		}
 
 		// Not our response, skip (could be a notification)
@@ -341,7 +337,7 @@ func (s *Session) readLineWithDeadline(deadline time.Time) (string, error) {
 		if s.stdout.Scan() {
 			ch <- scanResult{line: s.stdout.Text()}
 		} else {
-			ch <- scanResult{err: fmt.Errorf("port_exit: %v", s.stdout.Err())}
+			ch <- scanResult{err: fmt.Errorf("port_exit: %w", s.stdout.Err())}
 		}
 	}()
 
@@ -366,7 +362,7 @@ func (s *Session) Close() error {
 		return nil
 	}
 	s.closed = true
-	s.stdin.Close()
+	_ = s.stdin.Close()
 	if s.cmd.Process != nil {
 		_ = s.cmd.Process.Kill()
 	}
@@ -602,12 +598,12 @@ func isInputRequired(method string, msg map[string]any) bool {
 		return false
 	}
 	inputMethods := map[string]bool{
-		"turn/input_required":   true,
-		"turn/needs_input":      true,
-		"turn/need_input":       true,
-		"turn/request_input":    true,
-		"turn/request_response": true,
-		"turn/provide_input":    true,
+		"turn/input_required":    true,
+		"turn/needs_input":       true,
+		"turn/need_input":        true,
+		"turn/request_input":     true,
+		"turn/request_response":  true,
+		"turn/provide_input":     true,
 		"turn/approval_required": true,
 	}
 	if inputMethods[method] {

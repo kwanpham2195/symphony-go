@@ -38,9 +38,7 @@ func fakeLinearServer(t *testing.T, issues []map[string]any) *httptest.Server {
 
 		// Build response nodes
 		nodes := make([]map[string]any, 0, len(issues))
-		for _, issue := range issues {
-			nodes = append(nodes, issue)
-		}
+		nodes = append(nodes, issues...)
 
 		resp := map[string]any{
 			"data": map[string]any{
@@ -104,7 +102,7 @@ func TestAcceptance_SingleIssue_CompletesSuccessfully(t *testing.T) {
 			ActiveStates:   []string{"Todo", "In Progress"},
 			TerminalStates: []string{"Done", "Closed"},
 		},
-		Polling: config.PollingConfig{IntervalMS: 100},
+		Polling:   config.PollingConfig{IntervalMS: 100},
 		Workspace: config.WorkspaceConfig{Root: wsRoot},
 		Agent: config.AgentConfig{
 			MaxConcurrentAgents:        2,

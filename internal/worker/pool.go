@@ -8,10 +8,10 @@ import (
 
 // Pool tracks worker host capacity and load for dispatch decisions.
 type Pool struct {
-	mu                      sync.Mutex
-	hosts                   []string
-	maxConcurrentPerHost    int
-	running                 map[string]int // host -> count of running agents
+	mu                   sync.Mutex
+	hosts                []string
+	maxConcurrentPerHost int
+	running              map[string]int // host -> count of running agents
 }
 
 // NewPool creates a worker pool.

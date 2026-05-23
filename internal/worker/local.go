@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 )
@@ -44,7 +45,8 @@ func (l *LocalLauncher) RunHook(ctx context.Context, workspace string, script st
 
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			return nil, err

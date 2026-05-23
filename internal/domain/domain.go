@@ -6,18 +6,18 @@ import "time"
 // Issue is a normalized tracker issue used by orchestration, prompt rendering,
 // and observability output.
 type Issue struct {
-	ID         string    `json:"id"`
-	Identifier string    `json:"identifier"`
-	Title      string    `json:"title"`
-	Description string   `json:"description,omitempty"`
-	Priority   *int      `json:"priority,omitempty"`
-	State      string    `json:"state"`
-	BranchName string    `json:"branch_name,omitempty"`
-	URL        string    `json:"url,omitempty"`
-	Labels     []string  `json:"labels,omitempty"`
-	BlockedBy  []Blocker `json:"blocked_by,omitempty"`
-	CreatedAt  *time.Time `json:"created_at,omitempty"`
-	UpdatedAt  *time.Time `json:"updated_at,omitempty"`
+	ID          string     `json:"id"`
+	Identifier  string     `json:"identifier"`
+	Title       string     `json:"title"`
+	Description string     `json:"description,omitempty"`
+	Priority    *int       `json:"priority,omitempty"`
+	State       string     `json:"state"`
+	BranchName  string     `json:"branch_name,omitempty"`
+	URL         string     `json:"url,omitempty"`
+	Labels      []string   `json:"labels,omitempty"`
+	BlockedBy   []Blocker  `json:"blocked_by,omitempty"`
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
 }
 
 // Blocker is a reference to an issue that blocks dispatch.
@@ -35,13 +35,13 @@ type Workflow struct {
 
 // RunAttempt tracks one execution attempt for an issue.
 type RunAttempt struct {
-	IssueID         string     `json:"issue_id"`
-	IssueIdentifier string     `json:"issue_identifier"`
-	Attempt         *int       `json:"attempt,omitempty"`
-	WorkspacePath   string     `json:"workspace_path"`
-	StartedAt       time.Time  `json:"started_at"`
-	Status          string     `json:"status"`
-	Error           string     `json:"error,omitempty"`
+	IssueID         string    `json:"issue_id"`
+	IssueIdentifier string    `json:"issue_identifier"`
+	Attempt         *int      `json:"attempt,omitempty"`
+	WorkspacePath   string    `json:"workspace_path"`
+	StartedAt       time.Time `json:"started_at"`
+	Status          string    `json:"status"`
+	Error           string    `json:"error,omitempty"`
 }
 
 // Workspace represents a per-issue filesystem workspace.
@@ -70,46 +70,46 @@ type TokenUsage struct {
 
 // LiveSession tracks metadata for a running codex app-server session.
 type LiveSession struct {
-	SessionID              string     `json:"session_id"`
-	ThreadID               string     `json:"thread_id"`
-	TurnID                 string     `json:"turn_id"`
-	CodexPID               int        `json:"codex_pid,omitempty"`
-	LastCodexEvent         string     `json:"last_codex_event,omitempty"`
-	LastCodexTimestamp      *time.Time `json:"last_codex_timestamp,omitempty"`
-	CodexInputTokens       int        `json:"codex_input_tokens"`
-	CodexOutputTokens      int        `json:"codex_output_tokens"`
-	CodexTotalTokens       int        `json:"codex_total_tokens"`
-	LastReportedInputTokens  int      `json:"last_reported_input_tokens"`
-	LastReportedOutputTokens int      `json:"last_reported_output_tokens"`
-	LastReportedTotalTokens  int      `json:"last_reported_total_tokens"`
-	TurnCount              int        `json:"turn_count"`
+	SessionID                string     `json:"session_id"`
+	ThreadID                 string     `json:"thread_id"`
+	TurnID                   string     `json:"turn_id"`
+	CodexPID                 int        `json:"codex_pid,omitempty"`
+	LastCodexEvent           string     `json:"last_codex_event,omitempty"`
+	LastCodexTimestamp       *time.Time `json:"last_codex_timestamp,omitempty"`
+	CodexInputTokens         int        `json:"codex_input_tokens"`
+	CodexOutputTokens        int        `json:"codex_output_tokens"`
+	CodexTotalTokens         int        `json:"codex_total_tokens"`
+	LastReportedInputTokens  int        `json:"last_reported_input_tokens"`
+	LastReportedOutputTokens int        `json:"last_reported_output_tokens"`
+	LastReportedTotalTokens  int        `json:"last_reported_total_tokens"`
+	TurnCount                int        `json:"turn_count"`
 }
 
 // RetryEntry is a scheduled retry for an issue.
 type RetryEntry struct {
-	IssueID    string `json:"issue_id"`
-	Identifier string `json:"identifier"`
-	Attempt    int    `json:"attempt"`
+	IssueID    string    `json:"issue_id"`
+	Identifier string    `json:"identifier"`
+	Attempt    int       `json:"attempt"`
 	DueAt      time.Time `json:"due_at"`
-	Error      string `json:"error,omitempty"`
+	Error      string    `json:"error,omitempty"`
 }
 
 // Snapshot is a point-in-time view of orchestrator state for dashboards and
 // the status API.
 type Snapshot struct {
-	Running    []RunningRow `json:"running"`
-	Retrying   []RetryRow   `json:"retrying"`
-	CodexTotals CodexTotals `json:"codex_totals"`
-	RateLimits map[string]any `json:"rate_limits,omitempty"`
+	Running     []RunningRow   `json:"running"`
+	Retrying    []RetryRow     `json:"retrying"`
+	CodexTotals CodexTotals    `json:"codex_totals"`
+	RateLimits  map[string]any `json:"rate_limits,omitempty"`
 }
 
 // RunningRow is a single row in the snapshot running list.
 type RunningRow struct {
-	IssueID         string     `json:"issue_id"`
-	IssueIdentifier string     `json:"issue_identifier"`
-	SessionID       string     `json:"session_id"`
-	TurnCount       int        `json:"turn_count"`
-	StartedAt       time.Time  `json:"started_at"`
+	IssueID         string    `json:"issue_id"`
+	IssueIdentifier string    `json:"issue_identifier"`
+	SessionID       string    `json:"session_id"`
+	TurnCount       int       `json:"turn_count"`
+	StartedAt       time.Time `json:"started_at"`
 }
 
 // RetryRow is a single row in the snapshot retry list.

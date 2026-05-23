@@ -51,7 +51,7 @@ type runningEntry struct {
 	StartedAt          time.Time
 	SessionID          string
 	LastCodexEvent     string
-	LastCodexTimestamp  *time.Time
+	LastCodexTimestamp *time.Time
 	CodexInputTokens   int
 	CodexOutputTokens  int
 	CodexTotalTokens   int
@@ -175,18 +175,18 @@ type Orchestrator struct {
 	deps   Deps
 	logger *slog.Logger
 
-	mu             sync.Mutex
-	running        map[string]*runningEntry  // issue_id -> entry
-	claimed        map[string]bool           // issue_id -> true
-	retryAttempts  map[string]*retryEntry    // issue_id -> entry
-	completed      map[string]bool           // issue_id -> true
-	codexTotals    domain.CodexTotals
-	rateLimits     map[string]any
-	endedSeconds   float64
-	stopCh         chan struct{}
-	stopped        bool
-	ctx            context.Context    // lifecycle context; cancelled on shutdown
-	cancelCtx      context.CancelFunc
+	mu            sync.Mutex
+	running       map[string]*runningEntry // issue_id -> entry
+	claimed       map[string]bool          // issue_id -> true
+	retryAttempts map[string]*retryEntry   // issue_id -> entry
+	completed     map[string]bool          // issue_id -> true
+	codexTotals   domain.CodexTotals
+	rateLimits    map[string]any
+	endedSeconds  float64
+	stopCh        chan struct{}
+	stopped       bool
+	ctx           context.Context // lifecycle context; cancelled on shutdown
+	cancelCtx     context.CancelFunc
 }
 
 // New creates an orchestrator from deps.

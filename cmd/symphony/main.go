@@ -13,6 +13,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -171,7 +172,7 @@ func main() {
 		}()
 	}
 
-	if err := orch.Start(ctx); err != nil && err != context.Canceled {
+	if err := orch.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		fatal("orchestrator: %v", err)
 	}
 }
