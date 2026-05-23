@@ -32,6 +32,13 @@ import (
 	"github.com/kwanpham2195/symphony-go/internal/workspace"
 )
 
+// Set by goreleaser ldflags.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	args := parseArgs(os.Args[1:])
 	logger := observability.NewTextLogger()
@@ -198,6 +205,9 @@ func parseArgs(args []string) cliArgs {
 		case "--help", "-h":
 			printUsage()
 			os.Exit(0)
+		case "--version", "-v":
+			fmt.Printf("symphony %s (commit %s, built %s)\n", version, commit, date)
+			os.Exit(0)
 		default:
 			if args[i] != "" && args[i][0] == '-' {
 				fatal("unknown flag: %s", args[i])
@@ -215,6 +225,7 @@ Flags:
   --validate-only  Load and validate the workflow, then exit.
   --once           Run a single poll cycle, then exit.
   --port PORT      Enable HTTP server on PORT.
+  --version, -v    Show version.
   --help, -h       Show this help.
 
 If workflow-path is omitted, WORKFLOW.md in the current directory is used.`)
