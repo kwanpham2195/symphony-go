@@ -2,6 +2,20 @@
 
 A Go implementation of [Symphony](https://github.com/openai/symphony): a long-running service that reads Linear issues, creates per-issue workspaces, and runs Codex app-server sessions inside them.
 
+## Install
+
+```bash
+go install github.com/kwanpham2195/symphony-go/cmd/symphony@latest
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/kwanpham2195/symphony-go.git
+cd symphony-go
+go build -o symphony ./cmd/symphony
+```
+
 ## Quick Start
 
 ```bash
