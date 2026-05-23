@@ -117,10 +117,9 @@ func main() {
 		if args.port > 0 {
 			newCfg.Server.Port = args.port
 		}
-		// Update components
-		*cfg = *newCfg
-		wsMgr.UpdateConfig(cfg)
-		codexClient.UpdateConfig(cfg)
+		// Update components atomically
+		wsMgr.UpdateConfig(newCfg)
+		codexClient.UpdateConfig(newCfg)
 		agentRunner.UpdatePrompt(newWF.PromptTemplate)
 		logger.Info("config reloaded from workflow")
 	}, logger)

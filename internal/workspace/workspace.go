@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/kwanpham2195/symphony-go/internal/config"
@@ -22,7 +23,7 @@ var unsafeChars = regexp.MustCompile(`[^A-Za-z0-9._-]`)
 
 // Manager handles workspace lifecycle for local workers.
 type Manager struct {
-	cfg    *config.Config
+	cfg    atomic.Pointer[config.Config]
 	logger *slog.Logger
 }
 
@@ -31,12 +32,19 @@ func NewManager(cfg *config.Config, logger *slog.Logger) *Manager {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Manager{cfg: cfg, logger: logger}
+	m := &Manager{logger: logger}
+	m.cfg.Store(cfg)
+	return m
 }
 
 // UpdateConfig replaces the config (for dynamic reload).
 func (m *Manager) UpdateConfig(cfg *config.Config) {
-	m.cfg = cfg
+	m.cfg.Store(cfg)
+}
+
+// config returns the current config snapshot.
+func (m *Manager) config() *config.Config {
+	return m.cfg.Load()
 }
 
 // CreateForIssue creates or reuses a workspace directory for an issue.
@@ -44,8 +52,9 @@ func (m *Manager) UpdateConfig(cfg *config.Config) {
 // If the workspace was newly created and after_create hook is configured,
 // it runs the hook. Hook failure is fatal: the workspace is removed.
 func (m *Manager) CreateForIssue(ctx context.Context, issue domain.Issue) (domain.Workspace, error) {
+	cfg := m.config()
 	key := SafeIdentifier(issue.Identifier)
-	root := m.cfg.Workspace.Root
+	root := cfg.Workspace.Root
 
 	wsPath := filepath.Join(root, key)
 
@@ -90,13 +99,13 @@ func (m *Manager) CreateForIssue(ctx context.Context, issue domain.Issue) (domai
 	}
 
 	// Run after_create hook if newly created
-	if createdNow && m.cfg.Hooks.AfterCreate != "" {
+	if createdNow && cfg.Hooks.AfterCreate != "" {
 		m.logger.Info("running workspace hook",
 			"hook", "after_create",
 			"issue_identifier", issue.Identifier,
 			"workspace", wsPath,
 		)
-		if err := m.runHook(ctx, m.cfg.Hooks.AfterCreate, wsPath, issue.Identifier, "after_create"); err != nil {
+		if err := m.runHook(ctx, cfg.Hooks.AfterCreate, wsPath, issue.Identifier, "after_create"); err != nil {
 			// Fatal: remove partially created workspace
 			_ = os.RemoveAll(wsPath)
 			return domain.Workspace{}, fmt.Errorf("after_create hook: %w", err)
@@ -109,22 +118,23 @@ func (m *Manager) CreateForIssue(ctx context.Context, issue domain.Issue) (domai
 // RemoveIssueWorkspace removes the workspace for an issue identifier.
 // Runs before_remove hook if configured (failure logged and ignored).
 func (m *Manager) RemoveIssueWorkspace(ctx context.Context, identifier string) error {
+	cfg := m.config()
 	key := SafeIdentifier(identifier)
-	wsPath := filepath.Join(m.cfg.Workspace.Root, key)
+	wsPath := filepath.Join(cfg.Workspace.Root, key)
 
-	if err := ValidatePath(wsPath, m.cfg.Workspace.Root); err != nil {
+	if err := ValidatePath(wsPath, cfg.Workspace.Root); err != nil {
 		return fmt.Errorf("workspace path validation: %w", err)
 	}
 
 	// Run before_remove hook if directory exists
 	if info, err := os.Stat(wsPath); err == nil && info.IsDir() {
-		if m.cfg.Hooks.BeforeRemove != "" {
+		if cfg.Hooks.BeforeRemove != "" {
 			m.logger.Info("running workspace hook",
 				"hook", "before_remove",
 				"issue_identifier", identifier,
 				"workspace", wsPath,
 			)
-			if err := m.runHook(ctx, m.cfg.Hooks.BeforeRemove, wsPath, identifier, "before_remove"); err != nil {
+			if err := m.runHook(ctx, cfg.Hooks.BeforeRemove, wsPath, identifier, "before_remove"); err != nil {
 				m.logger.Warn("before_remove hook failed (ignored)",
 					"issue_identifier", identifier,
 					"error", err,
@@ -139,7 +149,8 @@ func (m *Manager) RemoveIssueWorkspace(ctx context.Context, identifier string) e
 // RunBeforeRunHook runs the before_run hook in the workspace.
 // Failure is fatal to the current run attempt.
 func (m *Manager) RunBeforeRunHook(ctx context.Context, ws domain.Workspace, issue domain.Issue) error {
-	if m.cfg.Hooks.BeforeRun == "" {
+	cfg := m.config()
+	if cfg.Hooks.BeforeRun == "" {
 		return nil
 	}
 	m.logger.Info("running workspace hook",
@@ -147,13 +158,14 @@ func (m *Manager) RunBeforeRunHook(ctx context.Context, ws domain.Workspace, iss
 		"issue_identifier", issue.Identifier,
 		"workspace", ws.Path,
 	)
-	return m.runHook(ctx, m.cfg.Hooks.BeforeRun, ws.Path, issue.Identifier, "before_run")
+	return m.runHook(ctx, cfg.Hooks.BeforeRun, ws.Path, issue.Identifier, "before_run")
 }
 
 // RunAfterRunHook runs the after_run hook in the workspace.
 // Failure is logged and ignored.
 func (m *Manager) RunAfterRunHook(ctx context.Context, ws domain.Workspace, issue domain.Issue) {
-	if m.cfg.Hooks.AfterRun == "" {
+	cfg := m.config()
+	if cfg.Hooks.AfterRun == "" {
 		return
 	}
 	m.logger.Info("running workspace hook",
@@ -161,7 +173,7 @@ func (m *Manager) RunAfterRunHook(ctx context.Context, ws domain.Workspace, issu
 		"issue_identifier", issue.Identifier,
 		"workspace", ws.Path,
 	)
-	if err := m.runHook(ctx, m.cfg.Hooks.AfterRun, ws.Path, issue.Identifier, "after_run"); err != nil {
+	if err := m.runHook(ctx, cfg.Hooks.AfterRun, ws.Path, issue.Identifier, "after_run"); err != nil {
 		m.logger.Warn("after_run hook failed (ignored)",
 			"issue_identifier", issue.Identifier,
 			"error", err,
@@ -171,7 +183,8 @@ func (m *Manager) RunAfterRunHook(ctx context.Context, ws domain.Workspace, issu
 
 // runHook executes a shell script in the workspace directory with a timeout.
 func (m *Manager) runHook(ctx context.Context, script, workDir, identifier, hookName string) error {
-	timeoutMS := m.cfg.Hooks.TimeoutMS
+	cfg := m.config()
+	timeoutMS := cfg.Hooks.TimeoutMS
 	if timeoutMS <= 0 {
 		timeoutMS = 60000
 	}

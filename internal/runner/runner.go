@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/kwanpham2195/symphony-go/internal/codex"
 	"github.com/kwanpham2195/symphony-go/internal/config"
@@ -21,6 +22,8 @@ type Runner struct {
 	wsMgr  *workspace.Manager
 	codexC *codex.Client
 	logger *slog.Logger
+
+	mu     sync.RWMutex
 	prompt string // current workflow prompt template
 }
 
@@ -40,7 +43,17 @@ func New(cfg *config.Config, wsMgr *workspace.Manager, codexC *codex.Client, pro
 
 // UpdatePrompt updates the prompt template (for dynamic reload).
 func (r *Runner) UpdatePrompt(prompt string) {
+	r.mu.Lock()
 	r.prompt = prompt
+	r.mu.Unlock()
+}
+
+// getPrompt safely reads the current prompt template.
+func (r *Runner) getPrompt() string {
+	r.mu.RLock()
+	p := r.prompt
+	r.mu.RUnlock()
+	return p
 }
 
 // Run executes the full agent lifecycle for one issue:
@@ -72,7 +85,7 @@ func (r *Runner) Run(ctx context.Context, issue domain.Issue, attempt *int, upda
 	defer r.codexC.StopSession(sess)
 
 	// 4. Render prompt
-	rendered, err := workflow.RenderPrompt(r.prompt, issue, attempt)
+	rendered, err := workflow.RenderPrompt(r.getPrompt(), issue, attempt)
 	if err != nil {
 		return fmt.Errorf("prompt render failed: %w", err)
 	}

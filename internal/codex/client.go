@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kwanpham2195/symphony-go/internal/codex/tools"
@@ -54,7 +55,7 @@ type Session struct {
 
 // Client manages codex app-server sessions.
 type Client struct {
-	cfg    *config.Config
+	cfg    atomic.Pointer[config.Config]
 	logger *slog.Logger
 	tools  map[string]tools.Tool // registered dynamic tools
 }
@@ -64,7 +65,9 @@ func NewClient(cfg *config.Config, logger *slog.Logger) *Client {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Client{cfg: cfg, logger: logger, tools: make(map[string]tools.Tool)}
+	c := &Client{logger: logger, tools: make(map[string]tools.Tool)}
+	c.cfg.Store(cfg)
+	return c
 }
 
 // RegisterTool adds a dynamic tool that will be advertised in thread/start
@@ -75,13 +78,20 @@ func (c *Client) RegisterTool(t tools.Tool) {
 
 // UpdateConfig replaces the config (for dynamic reload).
 func (c *Client) UpdateConfig(cfg *config.Config) {
-	c.cfg = cfg
+	c.cfg.Store(cfg)
+}
+
+// config returns the current config snapshot.
+func (c *Client) loadConfig() *config.Config {
+	return c.cfg.Load()
 }
 
 // StartSession launches the app-server subprocess and completes the handshake
 // (initialize, initialized, thread/start).
 func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, error) {
-	cmd := exec.CommandContext(ctx, "bash", "-lc", c.cfg.Codex.Command)
+	cfg := c.loadConfig()
+
+	cmd := exec.CommandContext(ctx, "bash", "-lc", cfg.Codex.Command)
 	cmd.Dir = workspace
 
 	stdin, err := cmd.StdinPipe()
@@ -119,7 +129,7 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 	go c.drainStderr(sess)
 
 	// Handshake
-	readTimeout := time.Duration(c.cfg.Codex.ReadTimeoutMS) * time.Millisecond
+	readTimeout := time.Duration(cfg.Codex.ReadTimeoutMS) * time.Millisecond
 
 	// 1. initialize
 	if err := sess.send(map[string]any{
@@ -156,8 +166,8 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 
 	// 3. thread/start
 	threadParams := map[string]any{
-		"approvalPolicy": c.cfg.Codex.ApprovalPolicy,
-		"sandbox":        c.cfg.Codex.ThreadSandbox,
+		"approvalPolicy": cfg.Codex.ApprovalPolicy,
+		"sandbox":        cfg.Codex.ThreadSandbox,
 		"cwd":            workspace,
 	}
 
@@ -198,10 +208,12 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 // RunTurn starts a turn on an existing session and streams events until the
 // turn completes, fails, or times out.
 func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue, prompt string, onUpdate func(domain.AgentUpdate)) (*TurnResult, error) {
-	approvalPolicy := c.cfg.Codex.ApprovalPolicy
+	cfg := c.loadConfig()
+
+	approvalPolicy := cfg.Codex.ApprovalPolicy
 	autoApprove := isAutoApprove(approvalPolicy)
 
-	turnSandboxPolicy := c.cfg.Codex.TurnSandboxPolicy
+	turnSandboxPolicy := cfg.Codex.TurnSandboxPolicy
 	if turnSandboxPolicy == nil {
 		turnSandboxPolicy = map[string]any{
 			"type":            "workspaceWrite",
@@ -229,7 +241,7 @@ func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue,
 		return nil, fmt.Errorf("codex: send turn/start: %w", err)
 	}
 
-	readTimeout := time.Duration(c.cfg.Codex.ReadTimeoutMS) * time.Millisecond
+	readTimeout := time.Duration(cfg.Codex.ReadTimeoutMS) * time.Millisecond
 	turnResult, err := sess.awaitResponse(turnStartID, readTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("response_timeout: turn/start: %w", err)
@@ -247,7 +259,7 @@ func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue,
 	}
 
 	// Stream turn events
-	turnTimeout := time.Duration(c.cfg.Codex.TurnTimeoutMS) * time.Millisecond
+	turnTimeout := time.Duration(cfg.Codex.TurnTimeoutMS) * time.Millisecond
 	result, err := c.streamTurn(ctx, sess, sessionID, turnTimeout, autoApprove, onUpdate)
 	if err != nil {
 		return nil, err
