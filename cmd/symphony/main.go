@@ -22,6 +22,7 @@ import (
 	"github.com/kwanpham2195/symphony-go/internal/codex"
 	"github.com/kwanpham2195/symphony-go/internal/codex/tools"
 	"github.com/kwanpham2195/symphony-go/internal/config"
+	"github.com/kwanpham2195/symphony-go/internal/domain"
 	"github.com/kwanpham2195/symphony-go/internal/observability"
 	"github.com/kwanpham2195/symphony-go/internal/orchestrator"
 	"github.com/kwanpham2195/symphony-go/internal/runner"
@@ -99,6 +100,34 @@ func main() {
 		orch.Tick(ctx)
 		logger.Info("single poll cycle complete")
 		os.Exit(0)
+	}
+
+	// Start workflow file watcher for dynamic reload
+	wfWatcher, err := workflow.NewWatcher(path, func(newWF *domain.Workflow) {
+		newCfg, err := config.FromMap(newWF.Config)
+		if err != nil {
+			logger.Error("workflow reload config error; keeping last good", "error", err)
+			return
+		}
+		if err := newCfg.Validate(); err != nil {
+			logger.Error("workflow reload validation error; keeping last good", "error", err)
+			return
+		}
+		// Preserve CLI overrides
+		if args.port > 0 {
+			newCfg.Server.Port = args.port
+		}
+		// Update components
+		*cfg = *newCfg
+		wsMgr.UpdateConfig(cfg)
+		codexClient.UpdateConfig(cfg)
+		agentRunner.UpdatePrompt(newWF.PromptTemplate)
+		logger.Info("config reloaded from workflow")
+	}, logger)
+	if err != nil {
+		logger.Warn("workflow file watcher failed to start; dynamic reload disabled", "error", err)
+	} else {
+		defer wfWatcher.Close()
 	}
 
 	// Start orchestrator with signal handling
