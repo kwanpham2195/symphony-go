@@ -1,4 +1,4 @@
-.PHONY: build test test-race test-short test-acceptance vet lint check clean validate run
+.PHONY: build test test-race vet check clean validate run run-once release-dry
 
 # Build the symphony binary
 build:
@@ -8,40 +8,37 @@ build:
 test:
 	go test ./...
 
-# Run all tests with race detector
+# Run all tests with race detector (matches CI)
 test-race:
 	go test -race -count=1 ./...
-
-# Run unit tests only (skip acceptance)
-test-short:
-	go test -short ./...
-
-# Run acceptance tests only
-test-acceptance:
-	go test -v -run TestAcceptance -timeout 60s .
 
 # Run go vet
 vet:
 	go vet ./...
 
-# Lint + vet (add staticcheck/golangci-lint here when available)
-lint: vet
-
-# Full CI gate: vet + race tests (matches .github/workflows/ci.yml)
+# Full CI gate: vet + race tests
 check: vet test-race
 
 # Remove build artifacts
 clean:
 	rm -f symphony
+	rm -rf dist/
 
-# Validate a workflow file (default: WORKFLOW.md)
+# Validate a workflow file (pass WORKFLOW=path)
+# Example: make validate WORKFLOW=./testdata/workflows/minimal.md
 validate:
 	go run ./cmd/symphony --validate-only $(WORKFLOW)
 
-# Run the orchestrator (default: WORKFLOW.md)
+# Run the orchestrator (pass ARGS for flags and workflow path)
+# Example: make run ARGS="--port 8080 ./WORKFLOW.md"
 run:
 	go run ./cmd/symphony $(ARGS)
 
 # Run a single poll cycle then exit
+# Example: make run-once ARGS=./WORKFLOW.md
 run-once:
 	go run ./cmd/symphony --once $(ARGS)
+
+# Dry-run goreleaser to verify config without publishing
+release-dry:
+	goreleaser release --snapshot --clean

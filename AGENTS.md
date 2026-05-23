@@ -65,11 +65,3 @@ Upstream reference: [openai/symphony](https://github.com/openai/symphony). Key f
 ## ExecPlan
 
 The living implementation plan is at `.agents/PLANS/2026-05-22-build-go-symphony.md`. Keep its Progress, Surprises, Decision Log, and Outcomes sections current.
-
-## Remaining Integration Wiring
-
-These are built and tested independently but not yet wired together at runtime:
-
-- Advertise `linear_graphql` tool spec in codex `thread/start` params.
-- Route orchestrator dispatch through SSH worker pool when `worker.ssh_hosts` is configured.
-- Add `fsnotify` workflow file watcher for dynamic config reload.
