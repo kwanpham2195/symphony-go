@@ -12,6 +12,8 @@ linters:
     - errorlint
 
   exclusions:
+    paths:
+      - testdata
     rules:
       # Test files: allow unchecked errors for setup/teardown helpers
       - path: _test\.go
@@ -26,7 +28,3 @@ linters:
 formatters:
   enable:
     - gofmt
-
-issues:
-  exclude-dirs:
-    - testdata
