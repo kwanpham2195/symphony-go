@@ -111,7 +111,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		methodNotAllowed(w, "GET")
 		return
 	}
 
@@ -169,7 +169,7 @@ th { background: #16213e; }
 
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		methodNotAllowed(w, "GET")
 		return
 	}
 
@@ -179,7 +179,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleIssue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
+		methodNotAllowed(w, "GET")
 		return
 	}
 
@@ -222,7 +222,7 @@ func (s *Server) handleIssue(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w)
+		methodNotAllowed(w, "POST")
 		return
 	}
 
@@ -245,7 +245,7 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 	_ = enc.Encode(data)
 }
 
-func methodNotAllowed(w http.ResponseWriter) {
-	w.Header().Set("Allow", "GET")
+func methodNotAllowed(w http.ResponseWriter, allow string) {
+	w.Header().Set("Allow", allow)
 	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 }

@@ -238,6 +238,23 @@ func TestRefresh_MethodNotAllowed(t *testing.T) {
 	if w.Code != 405 {
 		t.Errorf("status = %d, want 405", w.Code)
 	}
+	if allow := w.Header().Get("Allow"); allow != "POST" {
+		t.Errorf("Allow header = %q, want POST", allow)
+	}
+}
+
+func TestState_MethodNotAllowed_AllowHeader(t *testing.T) {
+	srv := testServer(domain.Snapshot{})
+	req := httptest.NewRequest("POST", "/api/v1/state", nil)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 405 {
+		t.Errorf("status = %d, want 405", w.Code)
+	}
+	if allow := w.Header().Get("Allow"); allow != "GET" {
+		t.Errorf("Allow header = %q, want GET", allow)
+	}
 }
 
 // --- 404 for unknown paths ---
