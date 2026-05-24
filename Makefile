@@ -1,4 +1,4 @@
-.PHONY: build test test-race test-unit vet lint check clean validate run run-once release-dry
+.PHONY: build test test-race test-unit vet lint check check-sandbox clean validate run run-once release-dry
 
 # Build the symphony binary
 build:
@@ -8,7 +8,7 @@ build:
 test:
 	go test ./...
 
-# Run all tests with race detector (matches CI)
+# Run all tests with race detector
 test-race:
 	go test -race -count=1 ./...
 
@@ -24,8 +24,12 @@ vet:
 lint:
 	golangci-lint run ./...
 
-# Full CI gate: lint + race tests
+# Full CI gate: lint + all tests with race (used by GitHub Actions)
 check: lint test-race
+
+# Sandbox-safe gate: lint + unit tests only (used by codex agent)
+# Skips acceptance tests that bind network ports
+check-sandbox: lint test-unit
 
 # Remove build artifacts
 clean:

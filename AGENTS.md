@@ -64,4 +64,4 @@ Upstream reference: [openai/symphony](https://github.com/openai/symphony). Key f
 
 ## ExecPlan
 
-The living implementation plan is at `.agents/PLANS/2026-05-22-build-go-symphony.md`. Keep its Progress, Surprises, Decision Log, and Outcomes sections current.
+The living implementation plan is at `docs/plans/2026-05-22-build-go-symphony.md`. Keep its Progress, Surprises, Decision Log, and Outcomes sections current.
