@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal"
 )
 
 const (
@@ -111,19 +111,19 @@ func NewClient(endpoint, apiKey, projectSlug string, activeStates []string) *Cli
 }
 
 // FetchCandidateIssues returns issues in active states for the project.
-func (c *Client) FetchCandidateIssues(ctx context.Context) ([]domain.Issue, error) {
+func (c *Client) FetchCandidateIssues(ctx context.Context) ([]internal.Issue, error) {
 	return c.fetchByStates(ctx, c.ActiveStates)
 }
 
 // FetchCandidateIssuesWithStates returns issues in the given states for the
 // configured project, with pagination.
-func (c *Client) FetchCandidateIssuesWithStates(ctx context.Context, states []string) ([]domain.Issue, error) {
+func (c *Client) FetchCandidateIssuesWithStates(ctx context.Context, states []string) ([]internal.Issue, error) {
 	return c.fetchByStates(ctx, states)
 }
 
 // FetchIssuesByStates returns issues in the given states for the configured
 // project.
-func (c *Client) FetchIssuesByStates(ctx context.Context, states []string) ([]domain.Issue, error) {
+func (c *Client) FetchIssuesByStates(ctx context.Context, states []string) ([]internal.Issue, error) {
 	if len(states) == 0 {
 		return nil, nil
 	}
@@ -131,7 +131,7 @@ func (c *Client) FetchIssuesByStates(ctx context.Context, states []string) ([]do
 }
 
 // FetchIssueStatesByIDs returns current issue data for specific IDs.
-func (c *Client) FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]domain.Issue, error) {
+func (c *Client) FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]internal.Issue, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -142,7 +142,7 @@ func (c *Client) FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]dom
 		orderIndex[id] = i
 	}
 
-	var all []domain.Issue
+	var all []internal.Issue
 	for i := 0; i < len(ids); i += issuePageSize {
 		end := i + issuePageSize
 		if end > len(ids) {
@@ -180,8 +180,8 @@ func (c *Client) ExecuteGraphQL(ctx context.Context, query string, variables map
 
 // --- internal ---
 
-func (c *Client) fetchByStates(ctx context.Context, states []string) ([]domain.Issue, error) {
-	var all []domain.Issue
+func (c *Client) fetchByStates(ctx context.Context, states []string) ([]internal.Issue, error) {
+	var all []internal.Issue
 	var cursor *string
 
 	for {
@@ -320,7 +320,7 @@ type relationNode struct {
 	Issue *rawIssue `json:"issue"`
 }
 
-func decodeIssuesResponse(body json.RawMessage) ([]domain.Issue, error) {
+func decodeIssuesResponse(body json.RawMessage) ([]internal.Issue, error) {
 	var resp graphQLResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("linear_unknown_payload: %w", err)
@@ -331,7 +331,7 @@ func decodeIssuesResponse(body json.RawMessage) ([]domain.Issue, error) {
 	if resp.Data == nil {
 		return nil, fmt.Errorf("linear_unknown_payload: no data field")
 	}
-	issues := make([]domain.Issue, 0, len(resp.Data.Issues.Nodes))
+	issues := make([]internal.Issue, 0, len(resp.Data.Issues.Nodes))
 	for _, raw := range resp.Data.Issues.Nodes {
 		issue := normalizeIssue(raw)
 		if issue != nil {
@@ -341,7 +341,7 @@ func decodeIssuesResponse(body json.RawMessage) ([]domain.Issue, error) {
 	return issues, nil
 }
 
-func decodePagedResponse(body json.RawMessage) ([]domain.Issue, *pageInfo, error) {
+func decodePagedResponse(body json.RawMessage) ([]internal.Issue, *pageInfo, error) {
 	var resp graphQLResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, nil, fmt.Errorf("linear_unknown_payload: %w", err)
@@ -352,7 +352,7 @@ func decodePagedResponse(body json.RawMessage) ([]domain.Issue, *pageInfo, error
 	if resp.Data == nil {
 		return nil, nil, fmt.Errorf("linear_unknown_payload: no data field")
 	}
-	issues := make([]domain.Issue, 0, len(resp.Data.Issues.Nodes))
+	issues := make([]internal.Issue, 0, len(resp.Data.Issues.Nodes))
 	for _, raw := range resp.Data.Issues.Nodes {
 		issue := normalizeIssue(raw)
 		if issue != nil {
@@ -375,7 +375,7 @@ func nextPageCursor(pi *pageInfo) (*string, error) {
 // --- normalization ---
 
 // NormalizeIssue is exported for tests.
-func NormalizeIssue(raw json.RawMessage) (*domain.Issue, error) {
+func NormalizeIssue(raw json.RawMessage) (*internal.Issue, error) {
 	var ri rawIssue
 	if err := json.Unmarshal(raw, &ri); err != nil {
 		return nil, err
@@ -383,8 +383,8 @@ func NormalizeIssue(raw json.RawMessage) (*domain.Issue, error) {
 	return normalizeIssue(ri), nil
 }
 
-func normalizeIssue(raw rawIssue) *domain.Issue {
-	issue := &domain.Issue{
+func normalizeIssue(raw rawIssue) *internal.Issue {
+	issue := &internal.Issue{
 		ID:         raw.ID,
 		Identifier: raw.Identifier,
 		Title:      raw.Title,
@@ -417,7 +417,7 @@ func normalizeIssue(raw rawIssue) *domain.Issue {
 	if raw.InverseRelations != nil {
 		for _, rel := range raw.InverseRelations.Nodes {
 			if strings.EqualFold(strings.TrimSpace(rel.Type), "blocks") && rel.Issue != nil {
-				blocker := domain.Blocker{
+				blocker := internal.Blocker{
 					ID:         rel.Issue.ID,
 					Identifier: rel.Issue.Identifier,
 				}
@@ -444,7 +444,7 @@ func normalizeIssue(raw rawIssue) *domain.Issue {
 	return issue
 }
 
-func sortByIndex(issues []domain.Issue, orderIndex map[string]int) {
+func sortByIndex(issues []internal.Issue, orderIndex map[string]int) {
 	fallback := len(orderIndex)
 	for i := 1; i < len(issues); i++ {
 		for j := i; j > 0; j-- {

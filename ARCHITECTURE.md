@@ -41,19 +41,23 @@ Symphony Go is a single-binary service that polls Linear for issues, creates iso
 
 The codebase follows five layers. Each layer depends only on layers below it.
 
-### 1. Domain (`internal/domain`)
+### 1. Shared Types (`internal`)
 
 Shared types with no dependencies on other internal packages. Everything revolves around these types.
 
 - `Issue` — normalized tracker issue (id, identifier, title, state, labels, blockers, timestamps)
 - `Workspace` — filesystem workspace assigned to one issue (path, key, created flag)
+- `Workflow` — parsed `WORKFLOW.md` config and prompt template
 - `AgentUpdate` — structured event from codex client to orchestrator
-- `Snapshot` — point-in-time view of orchestrator state for the dashboard/API
-- `TokenUsage`, `CodexTotals`, `RunningRow`, `RetryRow`
+- `TokenUsage` — codex token counts from app-server events
+
+Package-owned DTOs live with the package that owns them. For example,
+`orchestrator.Snapshot`, `RunningRow`, `RetryRow`, and `CodexTotals` are in
+`internal/orchestrator`.
 
 ### 2. Integration (`internal/tracker`, `internal/codex`, `internal/workspace`, `internal/worker`)
 
-Each package owns one external boundary. They depend on domain types and config, not on each other.
+Each package owns one external boundary. They depend on shared types and config, not on each other.
 
 **Tracker** reads issues from Linear via GraphQL:
 - `tracker.Tracker` interface — `FetchCandidateIssues`, `FetchIssuesByStates`, `FetchIssueStatesByIDs`

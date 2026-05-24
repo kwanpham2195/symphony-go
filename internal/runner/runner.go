@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/codex"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 	"github.com/kwanpham2195/symphony-go/internal/workflow"
 	"github.com/kwanpham2195/symphony-go/internal/workspace"
 )
@@ -62,7 +62,7 @@ func (r *Runner) getPrompt() string {
 // 3. Start codex session
 // 4. Render prompt and run turns (up to max_turns)
 // 5. Run after_run hook (best effort)
-func (r *Runner) Run(ctx context.Context, issue domain.Issue, attempt *int, updates chan<- domain.AgentUpdate) error {
+func (r *Runner) Run(ctx context.Context, issue internal.Issue, attempt *int, updates chan<- internal.AgentUpdate) error {
 	// 1. Create workspace
 	ws, err := r.wsMgr.CreateForIssue(ctx, issue)
 	if err != nil {
@@ -105,7 +105,7 @@ func (r *Runner) Run(ctx context.Context, issue domain.Issue, attempt *int, upda
 			prompt = continuationPrompt(issue)
 		}
 
-		result, err := r.codexC.RunTurn(ctx, sess, issue, prompt, func(u domain.AgentUpdate) {
+		result, err := r.codexC.RunTurn(ctx, sess, issue, prompt, func(u internal.AgentUpdate) {
 			select {
 			case updates <- u:
 			default:
@@ -140,7 +140,7 @@ func (r *Runner) Run(ctx context.Context, issue domain.Issue, attempt *int, upda
 	return nil
 }
 
-func continuationPrompt(issue domain.Issue) string {
+func continuationPrompt(issue internal.Issue) string {
 	return strings.TrimSpace(fmt.Sprintf(
 		"Continue working on %s: %s. The issue is still in an active state. "+
 			"Resume from current workspace state.",

@@ -8,16 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/orchestrator"
 )
 
 // --- Fakes ---
 
 type fakeSnapshotProvider struct {
-	snapshot domain.Snapshot
+	snapshot orchestrator.Snapshot
 }
 
-func (f *fakeSnapshotProvider) Snapshot() domain.Snapshot {
+func (f *fakeSnapshotProvider) Snapshot() orchestrator.Snapshot {
 	return f.snapshot
 }
 
@@ -32,7 +32,7 @@ func (f *fakeRefresher) Tick(_ context.Context) {
 	f.mu.Unlock()
 }
 
-func testServer(snap domain.Snapshot) *Server {
+func testServer(snap orchestrator.Snapshot) *Server {
 	return New(
 		&fakeSnapshotProvider{snapshot: snap},
 		&fakeRefresher{},
@@ -44,14 +44,14 @@ func testServer(snap domain.Snapshot) *Server {
 // --- Dashboard tests ---
 
 func TestDashboard_GET(t *testing.T) {
-	srv := testServer(domain.Snapshot{
-		Running: []domain.RunningRow{
+	srv := testServer(orchestrator.Snapshot{
+		Running: []orchestrator.RunningRow{
 			{IssueID: "id-1", IssueIdentifier: "SYM-1", SessionID: "sess-1", TurnCount: 2, StartedAt: time.Now()},
 		},
-		Retrying: []domain.RetryRow{
+		Retrying: []orchestrator.RetryRow{
 			{IssueID: "id-2", Identifier: "SYM-2", Attempt: 3, DueAt: time.Now().Add(10 * time.Second)},
 		},
-		CodexTotals: domain.CodexTotals{TotalTokens: 1000, SecondsRunning: 120},
+		CodexTotals: orchestrator.CodexTotals{TotalTokens: 1000, SecondsRunning: 120},
 	})
 
 	req := httptest.NewRequest("GET", "/", nil)
@@ -71,7 +71,7 @@ func TestDashboard_GET(t *testing.T) {
 }
 
 func TestDashboard_MethodNotAllowed(t *testing.T) {
-	srv := testServer(domain.Snapshot{})
+	srv := testServer(orchestrator.Snapshot{})
 	req := httptest.NewRequest("POST", "/", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
@@ -84,11 +84,11 @@ func TestDashboard_MethodNotAllowed(t *testing.T) {
 // --- State API tests ---
 
 func TestState_GET(t *testing.T) {
-	snap := domain.Snapshot{
-		Running: []domain.RunningRow{
+	snap := orchestrator.Snapshot{
+		Running: []orchestrator.RunningRow{
 			{IssueID: "id-1", IssueIdentifier: "SYM-1"},
 		},
-		CodexTotals: domain.CodexTotals{InputTokens: 100, OutputTokens: 200, TotalTokens: 300},
+		CodexTotals: orchestrator.CodexTotals{InputTokens: 100, OutputTokens: 200, TotalTokens: 300},
 	}
 	srv := testServer(snap)
 
@@ -100,7 +100,7 @@ func TestState_GET(t *testing.T) {
 		t.Fatalf("status = %d", w.Code)
 	}
 
-	var result domain.Snapshot
+	var result orchestrator.Snapshot
 	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestState_GET(t *testing.T) {
 }
 
 func TestState_MethodNotAllowed(t *testing.T) {
-	srv := testServer(domain.Snapshot{})
+	srv := testServer(orchestrator.Snapshot{})
 	req := httptest.NewRequest("POST", "/api/v1/state", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
@@ -126,8 +126,8 @@ func TestState_MethodNotAllowed(t *testing.T) {
 // --- Issue API tests ---
 
 func TestIssue_Found_Running(t *testing.T) {
-	snap := domain.Snapshot{
-		Running: []domain.RunningRow{
+	snap := orchestrator.Snapshot{
+		Running: []orchestrator.RunningRow{
 			{IssueID: "id-1", IssueIdentifier: "SYM-1", SessionID: "sess-1"},
 		},
 	}
@@ -149,8 +149,8 @@ func TestIssue_Found_Running(t *testing.T) {
 }
 
 func TestIssue_Found_Retrying(t *testing.T) {
-	snap := domain.Snapshot{
-		Retrying: []domain.RetryRow{
+	snap := orchestrator.Snapshot{
+		Retrying: []orchestrator.RetryRow{
 			{IssueID: "id-2", Identifier: "SYM-2", Attempt: 2},
 		},
 	}
@@ -172,7 +172,7 @@ func TestIssue_Found_Retrying(t *testing.T) {
 }
 
 func TestIssue_NotFound(t *testing.T) {
-	srv := testServer(domain.Snapshot{})
+	srv := testServer(orchestrator.Snapshot{})
 
 	req := httptest.NewRequest("GET", "/api/v1/issues/UNKNOWN-1", nil)
 	w := httptest.NewRecorder()
@@ -184,7 +184,7 @@ func TestIssue_NotFound(t *testing.T) {
 }
 
 func TestIssue_MethodNotAllowed(t *testing.T) {
-	srv := testServer(domain.Snapshot{})
+	srv := testServer(orchestrator.Snapshot{})
 	req := httptest.NewRequest("DELETE", "/api/v1/issues/SYM-1", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
@@ -230,7 +230,7 @@ func TestRefresh_POST(t *testing.T) {
 }
 
 func TestRefresh_MethodNotAllowed(t *testing.T) {
-	srv := testServer(domain.Snapshot{})
+	srv := testServer(orchestrator.Snapshot{})
 	req := httptest.NewRequest("GET", "/api/v1/refresh", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
@@ -244,7 +244,7 @@ func TestRefresh_MethodNotAllowed(t *testing.T) {
 }
 
 func TestState_MethodNotAllowed_AllowHeader(t *testing.T) {
-	srv := testServer(domain.Snapshot{})
+	srv := testServer(orchestrator.Snapshot{})
 	req := httptest.NewRequest("POST", "/api/v1/state", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
@@ -260,7 +260,7 @@ func TestState_MethodNotAllowed_AllowHeader(t *testing.T) {
 // --- 404 for unknown paths ---
 
 func TestUnknownPath_404(t *testing.T) {
-	srv := testServer(domain.Snapshot{})
+	srv := testServer(orchestrator.Snapshot{})
 	req := httptest.NewRequest("GET", "/unknown", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)

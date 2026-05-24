@@ -1,4 +1,4 @@
-.PHONY: build test test-race test-unit vet lint check clean validate run run-once release-dry
+.PHONY: build test test-race test-unit vet lint check check-sandbox clean validate run run-once release-dry
 
 # Build the symphony binary
 build:
@@ -26,6 +26,10 @@ lint:
 
 # Full CI gate: lint + race tests
 check: lint test-race
+
+# Sandbox-safe gate: lint + race unit tests, without acceptance tests that bind
+# local ports.
+check-sandbox: lint test-unit
 
 # Remove build artifacts
 clean:

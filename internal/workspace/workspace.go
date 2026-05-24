@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 // unsafeChars matches anything not in [A-Za-z0-9._-].
@@ -48,10 +48,10 @@ func (m *Manager) config() *config.Config {
 }
 
 // CreateForIssue creates or reuses a workspace directory for an issue.
-// It returns a domain.Workspace with CreatedNow=true if newly created.
+// It returns an internal.Workspace with CreatedNow=true if newly created.
 // If the workspace was newly created and after_create hook is configured,
 // it runs the hook. Hook failure is fatal: the workspace is removed.
-func (m *Manager) CreateForIssue(ctx context.Context, issue domain.Issue) (domain.Workspace, error) {
+func (m *Manager) CreateForIssue(ctx context.Context, issue internal.Issue) (internal.Workspace, error) {
 	cfg := m.config()
 	key := SafeIdentifier(issue.Identifier)
 	root := cfg.Workspace.Root
@@ -60,12 +60,12 @@ func (m *Manager) CreateForIssue(ctx context.Context, issue domain.Issue) (domai
 
 	// Validate path safety before creating anything
 	if err := ValidatePath(wsPath, root); err != nil {
-		return domain.Workspace{}, fmt.Errorf("workspace path validation: %w", err)
+		return internal.Workspace{}, fmt.Errorf("workspace path validation: %w", err)
 	}
 
 	// Ensure root exists
 	if err := os.MkdirAll(root, 0o755); err != nil {
-		return domain.Workspace{}, fmt.Errorf("create workspace root: %w", err)
+		return internal.Workspace{}, fmt.Errorf("create workspace root: %w", err)
 	}
 
 	createdNow := false
@@ -77,22 +77,22 @@ func (m *Manager) CreateForIssue(ctx context.Context, issue domain.Issue) (domai
 	case err == nil && !info.IsDir():
 		// Stale non-directory: remove and recreate
 		if removeErr := os.RemoveAll(wsPath); removeErr != nil {
-			return domain.Workspace{}, fmt.Errorf("remove stale workspace path: %w", removeErr)
+			return internal.Workspace{}, fmt.Errorf("remove stale workspace path: %w", removeErr)
 		}
 		if mkErr := os.MkdirAll(wsPath, 0o755); mkErr != nil {
-			return domain.Workspace{}, fmt.Errorf("create workspace dir: %w", mkErr)
+			return internal.Workspace{}, fmt.Errorf("create workspace dir: %w", mkErr)
 		}
 		createdNow = true
 	case os.IsNotExist(err):
 		if mkErr := os.MkdirAll(wsPath, 0o755); mkErr != nil {
-			return domain.Workspace{}, fmt.Errorf("create workspace dir: %w", mkErr)
+			return internal.Workspace{}, fmt.Errorf("create workspace dir: %w", mkErr)
 		}
 		createdNow = true
 	default:
-		return domain.Workspace{}, fmt.Errorf("stat workspace path: %w", err)
+		return internal.Workspace{}, fmt.Errorf("stat workspace path: %w", err)
 	}
 
-	ws := domain.Workspace{
+	ws := internal.Workspace{
 		Path:         wsPath,
 		WorkspaceKey: key,
 		CreatedNow:   createdNow,
@@ -108,7 +108,7 @@ func (m *Manager) CreateForIssue(ctx context.Context, issue domain.Issue) (domai
 		if err := m.runHook(ctx, cfg.Hooks.AfterCreate, wsPath, issue.Identifier, "after_create"); err != nil {
 			// Fatal: remove partially created workspace
 			_ = os.RemoveAll(wsPath)
-			return domain.Workspace{}, fmt.Errorf("after_create hook: %w", err)
+			return internal.Workspace{}, fmt.Errorf("after_create hook: %w", err)
 		}
 	}
 
@@ -148,7 +148,7 @@ func (m *Manager) RemoveIssueWorkspace(ctx context.Context, identifier string) e
 
 // RunBeforeRunHook runs the before_run hook in the workspace.
 // Failure is fatal to the current run attempt.
-func (m *Manager) RunBeforeRunHook(ctx context.Context, ws domain.Workspace, issue domain.Issue) error {
+func (m *Manager) RunBeforeRunHook(ctx context.Context, ws internal.Workspace, issue internal.Issue) error {
 	cfg := m.config()
 	if cfg.Hooks.BeforeRun == "" {
 		return nil
@@ -163,7 +163,7 @@ func (m *Manager) RunBeforeRunHook(ctx context.Context, ws domain.Workspace, iss
 
 // RunAfterRunHook runs the after_run hook in the workspace.
 // Failure is logged and ignored.
-func (m *Manager) RunAfterRunHook(ctx context.Context, ws domain.Workspace, issue domain.Issue) {
+func (m *Manager) RunAfterRunHook(ctx context.Context, ws internal.Workspace, issue internal.Issue) {
 	cfg := m.config()
 	if cfg.Hooks.AfterRun == "" {
 		return

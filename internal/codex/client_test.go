@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 func testdataPath(name string) string {
@@ -61,10 +61,10 @@ func TestRunTurn_Completed(t *testing.T) {
 	}
 	defer c.StopSession(sess)
 
-	issue := domain.Issue{Identifier: "T-1", Title: "Test"}
+	issue := internal.Issue{Identifier: "T-1", Title: "Test"}
 	var updates []string
 	var mu sync.Mutex
-	onUpdate := func(u domain.AgentUpdate) {
+	onUpdate := func(u internal.AgentUpdate) {
 		mu.Lock()
 		updates = append(updates, u.Event)
 		mu.Unlock()
@@ -111,7 +111,7 @@ func TestRunTurn_Failed(t *testing.T) {
 	}
 	defer c.StopSession(sess)
 
-	issue := domain.Issue{Identifier: "T-2", Title: "Fail test"}
+	issue := internal.Issue{Identifier: "T-2", Title: "Fail test"}
 	result, err := c.RunTurn(context.Background(), sess, issue, "Prompt", nil)
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
@@ -132,10 +132,10 @@ func TestRunTurn_Approval(t *testing.T) {
 	}
 	defer c.StopSession(sess)
 
-	issue := domain.Issue{Identifier: "T-3", Title: "Approval test"}
+	issue := internal.Issue{Identifier: "T-3", Title: "Approval test"}
 	var updates []string
 	var mu sync.Mutex
-	onUpdate := func(u domain.AgentUpdate) {
+	onUpdate := func(u internal.AgentUpdate) {
 		mu.Lock()
 		updates = append(updates, u.Event)
 		mu.Unlock()
@@ -173,10 +173,10 @@ func TestRunTurn_UnsupportedTool(t *testing.T) {
 	}
 	defer c.StopSession(sess)
 
-	issue := domain.Issue{Identifier: "T-4", Title: "Tool test"}
+	issue := internal.Issue{Identifier: "T-4", Title: "Tool test"}
 	var updates []string
 	var mu sync.Mutex
-	onUpdate := func(u domain.AgentUpdate) {
+	onUpdate := func(u internal.AgentUpdate) {
 		mu.Lock()
 		updates = append(updates, u.Event)
 		mu.Unlock()
@@ -214,7 +214,7 @@ func TestRunTurn_InputRequired(t *testing.T) {
 	}
 	defer c.StopSession(sess)
 
-	issue := domain.Issue{Identifier: "T-5", Title: "Input test"}
+	issue := internal.Issue{Identifier: "T-5", Title: "Input test"}
 	result, err := c.RunTurn(context.Background(), sess, issue, "Prompt", nil)
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
@@ -235,7 +235,7 @@ func TestRunTurn_ProcessExit(t *testing.T) {
 	}
 	defer c.StopSession(sess)
 
-	issue := domain.Issue{Identifier: "T-6", Title: "Exit test"}
+	issue := internal.Issue{Identifier: "T-6", Title: "Exit test"}
 	result, err := c.RunTurn(context.Background(), sess, issue, "Prompt", nil)
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)

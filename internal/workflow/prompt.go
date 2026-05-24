@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/osteele/liquid"
 )
 
@@ -17,7 +17,7 @@ const DefaultPromptTemplate = "You are working on an issue from Linear."
 // Template variables:
 //   - issue: normalized issue object (all fields)
 //   - attempt: retry/continuation attempt number (nil on first run)
-func RenderPrompt(tmpl string, issue domain.Issue, attempt *int) (string, error) {
+func RenderPrompt(tmpl string, issue internal.Issue, attempt *int) (string, error) {
 	if strings.TrimSpace(tmpl) == "" {
 		tmpl = DefaultPromptTemplate
 	}
@@ -32,9 +32,9 @@ func RenderPrompt(tmpl string, issue domain.Issue, attempt *int) (string, error)
 	return strings.TrimSpace(out), nil
 }
 
-// buildBindings converts domain types into a map suitable for Liquid rendering.
+// buildBindings converts shared types into a map suitable for Liquid rendering.
 // Liquid expects map[string]interface{} for nested access.
-func buildBindings(issue domain.Issue, attempt *int) map[string]any {
+func buildBindings(issue internal.Issue, attempt *int) map[string]any {
 	blockers := make([]map[string]any, len(issue.BlockedBy))
 	for i, b := range issue.BlockedBy {
 		blockers[i] = map[string]any{

@@ -20,10 +20,10 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/codex"
 	"github.com/kwanpham2195/symphony-go/internal/codex/tools"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 	"github.com/kwanpham2195/symphony-go/internal/observability"
 	"github.com/kwanpham2195/symphony-go/internal/orchestrator"
 	"github.com/kwanpham2195/symphony-go/internal/runner"
@@ -111,7 +111,7 @@ func main() {
 	}
 
 	// Start workflow file watcher for dynamic reload
-	wfWatcher, err := workflow.NewWatcher(path, func(newWF *domain.Workflow) {
+	wfWatcher, err := workflow.NewWatcher(path, func(newWF *internal.Workflow) {
 		newCfg, err := config.FromMap(newWF.Config)
 		if err != nil {
 			logger.Error("workflow reload config error; keeping last good", "error", err)

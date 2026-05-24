@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,7 +39,7 @@ func ResolvePath(explicit string) (string, error) {
 }
 
 // Load reads and parses a workflow file at path.
-func Load(path string) (*domain.Workflow, error) {
+func Load(path string) (*internal.Workflow, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrMissingWorkflowFile, path, err)
@@ -48,14 +48,14 @@ func Load(path string) (*domain.Workflow, error) {
 }
 
 // Parse parses raw workflow content into a Workflow.
-func Parse(content string) (*domain.Workflow, error) {
+func Parse(content string) (*internal.Workflow, error) {
 	frontMatterLines, promptLines := splitFrontMatter(content)
 	config, err := parseFrontMatter(frontMatterLines)
 	if err != nil {
 		return nil, err
 	}
 	prompt := strings.TrimSpace(strings.Join(promptLines, "\n"))
-	return &domain.Workflow{
+	return &internal.Workflow{
 		Config:         config,
 		PromptTemplate: prompt,
 	}, nil
