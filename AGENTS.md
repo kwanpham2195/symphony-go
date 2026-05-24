@@ -88,6 +88,59 @@ git push origin v0.x.0
 
 Upstream: [openai/symphony](https://github.com/openai/symphony). Key files: `SPEC.md`, `elixir/lib/symphony_elixir/orchestrator.ex`, `elixir/lib/symphony_elixir/codex/app_server.ex`.
 
+## Linear
+
+Team **CFW**, project **symphony-go** (`slugId: 004d9e34fd6a`).
+
+**IDs:**
+- Team: `cdb75083-34f6-4791-ba66-eed690bd8cb9`
+- Project: `4490e506-e2bf-497e-a6d7-1173ce626bec`
+
+**Workflow states:**
+
+| State | Type | ID |
+|-------|------|----|
+| Backlog | backlog | `589a9e3e-f71a-4dc0-84e6-0bfdd742c7de` |
+| Todo | unstarted | `a5814d82-34c9-44f1-a231-f3b3bc9d7871` |
+| In Progress | started | `16de8212-2981-4963-bdb3-30ce5340d4fc` |
+| In Review | unstarted | `93462765-21d0-4246-b1c6-340c6d5a923c` |
+| Done | completed | `f316c63d-e07f-40ce-b134-e77ded154761` |
+| Canceled | canceled | `4a87af97-5b37-4402-8ffd-1332fa2e08bc` |
+| Duplicate | duplicate | `7ce4cd7f-1cef-4869-ba3f-7d51512becc9` |
+
+**Common labels:** `Feature` `Improvement` `Bug` `agent`
+
+**Create an issue:**
+
+```bash
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -d '{"query":"mutation($input:IssueCreateInput!){issueCreate(input:$input){success issue{identifier title}}}","variables":{"input":{"teamId":"cdb75083-34f6-4791-ba66-eed690bd8cb9","projectId":"4490e506-e2bf-497e-a6d7-1173ce626bec","stateId":"<STATE_ID>","title":"...","description":"..."}}}' | jq .
+```
+
+**Search issues:**
+
+```bash
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -d '{"query":"{ searchIssues(term: \"<search term>\", first: 10) { nodes { identifier title state { name } } } }"}' | jq .
+```
+
+**Move issue state:**
+
+```bash
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -d '{"query":"mutation($id:String!,$stateId:String!){issueUpdate(id:$id,input:{stateId:$stateId}){success issue{identifier state{name}}}}","variables":{"id":"<ISSUE_UUID>","stateId":"<STATE_ID>"}}' | jq .
+```
+
+`$LINEAR_API_KEY` is set in the environment. Use `searchIssues(term:...)` not the deprecated `issueSearch`.
+
+**Gotcha:** Linear description is markdown. When sending via `curl`, use heredoc or `--data-binary` with real newlines. Escaped `\n` inside a JSON string created by shell interpolation renders as literal `\n` text in the UI. Use `jq -Rs .` to properly encode multi-line strings.
+
 ## ExecPlan
 
 Execution plans live in `docs/plans/`. See [`docs/plans/README.md`](docs/plans/README.md) for the index with status (active/completed).
