@@ -23,8 +23,9 @@ Thumbs.db
 # Debug
 __debug_bin*
 
-# Local agent state
-.agents/
+# Local agent state (keep handoffs)
+.agents/*
+!.agents/handoffs/
 .pi/
 
 # Override global gitignore — keep .codex/skills checked in
