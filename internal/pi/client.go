@@ -28,7 +28,7 @@ const (
 
 // TurnResult describes how a prompt execution ended.
 type TurnResult struct {
-	Status  string // "completed", "failed", "timeout", "exit"
+	Status  internal.TurnStatus
 	Details map[string]any
 }
 
@@ -283,12 +283,12 @@ func (c *Client) streamEvents(ctx context.Context, sess *Session, sessionID stri
 	for {
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
-			return &TurnResult{Status: "timeout"}, nil
+			return &TurnResult{Status: internal.TurnStatusTimeout}, nil
 		}
 
 		line, err := sess.readLineWithDeadline(deadline)
 		if err != nil {
-			return &TurnResult{Status: "exit", Details: map[string]any{"error": err.Error()}}, nil
+			return &TurnResult{Status: internal.TurnStatusExit, Details: map[string]any{"error": err.Error()}}, nil
 		}
 
 		var msg map[string]any
@@ -300,36 +300,36 @@ func (c *Client) streamEvents(ctx context.Context, sess *Session, sessionID stri
 
 		switch eventType {
 		case "agent_start":
-			c.emitUpdate(onUpdate, "session_started", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventSessionStarted, sessionID, nil)
 
 		case "agent_end":
-			c.emitUpdate(onUpdate, "turn_completed", sessionID, nil)
-			return &TurnResult{Status: "completed"}, nil
+			c.emitUpdate(onUpdate, internal.EventTurnCompleted, sessionID, nil)
+			return &TurnResult{Status: internal.TurnStatusCompleted}, nil
 
 		case "turn_end":
 			usage := extractUsage(msg)
-			c.emitUpdate(onUpdate, "notification", sessionID, usage)
+			c.emitUpdate(onUpdate, internal.EventNotification, sessionID, usage)
 
 		case "turn_start":
-			c.emitUpdate(onUpdate, "notification", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventNotification, sessionID, nil)
 
 		case "tool_execution_start":
-			c.emitUpdate(onUpdate, "notification", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventNotification, sessionID, nil)
 
 		case "tool_execution_end":
-			c.emitUpdate(onUpdate, "tool_call_completed", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventToolCallCompleted, sessionID, nil)
 
 		case "compaction_start":
-			c.emitUpdate(onUpdate, "compaction_started", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventCompactionStarted, sessionID, nil)
 
 		case "compaction_end":
-			c.emitUpdate(onUpdate, "compaction_ended", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventCompactionEnded, sessionID, nil)
 
 		case "auto_retry_start":
-			c.emitUpdate(onUpdate, "auto_retry_started", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventAutoRetryStarted, sessionID, nil)
 
 		case "auto_retry_end":
-			c.emitUpdate(onUpdate, "auto_retry_ended", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventAutoRetryEnded, sessionID, nil)
 
 		case "extension_ui_request":
 			method, _ := msg["method"].(string)
@@ -368,7 +368,7 @@ func (c *Client) streamEvents(ctx context.Context, sess *Session, sessionID stri
 				"extension", msg["extensionPath"],
 				"error", msg["error"],
 			)
-			c.emitUpdate(onUpdate, "notification", sessionID, nil)
+			c.emitUpdate(onUpdate, internal.EventNotification, sessionID, nil)
 
 		case "response":
 			// Late response (e.g., for a previous command). Skip.
@@ -391,7 +391,7 @@ func (c *Client) drainStderr(sess *Session) {
 	}
 }
 
-func (c *Client) emitUpdate(onUpdate func(internal.AgentUpdate), event, sessionID string, usage *internal.TokenUsage) {
+func (c *Client) emitUpdate(onUpdate func(internal.AgentUpdate), event internal.AgentEvent, sessionID string, usage *internal.TokenUsage) {
 	if onUpdate == nil {
 		return
 	}
@@ -415,25 +415,12 @@ func extractUsage(msg map[string]any) *internal.TokenUsage {
 		return nil
 	}
 
-	input := intFromAny(usage["input"])
-	output := intFromAny(usage["output"])
+	input := internal.IntFromAny(usage["input"])
+	output := internal.IntFromAny(usage["output"])
 
 	return &internal.TokenUsage{
 		InputTokens:  input,
 		OutputTokens: output,
 		TotalTokens:  input + output,
-	}
-}
-
-func intFromAny(v any) int {
-	switch n := v.(type) {
-	case float64:
-		return int(n)
-	case int:
-		return n
-	case int64:
-		return int(n)
-	default:
-		return 0
 	}
 }

@@ -63,7 +63,7 @@ func TestRunTurn_Completed(t *testing.T) {
 	defer c.StopSession(sess)
 
 	issue := internal.Issue{Identifier: "T-1", Title: "Test"}
-	var updates []string
+	var updates []internal.AgentEvent
 	var mu sync.Mutex
 	onUpdate := func(u internal.AgentUpdate) {
 		mu.Lock()
@@ -75,7 +75,7 @@ func TestRunTurn_Completed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
 	}
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("status = %q, want completed", result.Status)
 	}
 	if result.ThreadID != "thread-abc" {
@@ -93,10 +93,10 @@ func TestRunTurn_Completed(t *testing.T) {
 	if len(updates) < 2 {
 		t.Fatalf("expected at least 2 updates, got %d", len(updates))
 	}
-	if updates[0] != "session_started" {
+	if updates[0] != internal.EventSessionStarted {
 		t.Errorf("first update = %q", updates[0])
 	}
-	if updates[len(updates)-1] != "turn_completed" {
+	if updates[len(updates)-1] != internal.EventTurnCompleted {
 		t.Errorf("last update = %q", updates[len(updates)-1])
 	}
 }
@@ -121,7 +121,7 @@ func TestRunTurn_DefaultsToDangerFullAccessTurnPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
 	}
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("status = %q, want completed", result.Status)
 	}
 
@@ -150,7 +150,7 @@ func TestRunTurn_Failed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
 	}
-	if result.Status != "failed" {
+	if result.Status != internal.TurnStatusFailed {
 		t.Errorf("status = %q, want failed", result.Status)
 	}
 }
@@ -167,7 +167,7 @@ func TestRunTurn_Approval(t *testing.T) {
 	defer c.StopSession(sess)
 
 	issue := internal.Issue{Identifier: "T-3", Title: "Approval test"}
-	var updates []string
+	var updates []internal.AgentEvent
 	var mu sync.Mutex
 	onUpdate := func(u internal.AgentUpdate) {
 		mu.Lock()
@@ -179,7 +179,7 @@ func TestRunTurn_Approval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
 	}
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("status = %q, want completed (approval auto-approved)", result.Status)
 	}
 
@@ -187,7 +187,7 @@ func TestRunTurn_Approval(t *testing.T) {
 	defer mu.Unlock()
 	found := false
 	for _, u := range updates {
-		if u == "approval_auto_approved" {
+		if u == internal.EventApprovalAutoApproved {
 			found = true
 		}
 	}
@@ -208,7 +208,7 @@ func TestRunTurn_UnsupportedTool(t *testing.T) {
 	defer c.StopSession(sess)
 
 	issue := internal.Issue{Identifier: "T-4", Title: "Tool test"}
-	var updates []string
+	var updates []internal.AgentEvent
 	var mu sync.Mutex
 	onUpdate := func(u internal.AgentUpdate) {
 		mu.Lock()
@@ -220,7 +220,7 @@ func TestRunTurn_UnsupportedTool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
 	}
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("status = %q, want completed (unsupported tool should not stall)", result.Status)
 	}
 
@@ -228,7 +228,7 @@ func TestRunTurn_UnsupportedTool(t *testing.T) {
 	defer mu.Unlock()
 	found := false
 	for _, u := range updates {
-		if u == "unsupported_tool_call" {
+		if u == internal.EventUnsupportedToolCall {
 			found = true
 		}
 	}
@@ -253,7 +253,7 @@ func TestRunTurn_InputRequired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
 	}
-	if result.Status != "input_required" {
+	if result.Status != internal.TurnStatusInputRequired {
 		t.Errorf("status = %q, want input_required", result.Status)
 	}
 }
@@ -274,7 +274,7 @@ func TestRunTurn_ProcessExit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunTurn error: %v", err)
 	}
-	if result.Status != "exit" {
+	if result.Status != internal.TurnStatusExit {
 		t.Errorf("status = %q, want exit", result.Status)
 	}
 }

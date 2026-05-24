@@ -101,7 +101,7 @@ func (r *PiRunner) Run(ctx context.Context, issue internal.Issue, attempt *int, 
 	}
 
 	switch result.Status {
-	case "completed":
+	case internal.TurnStatusCompleted:
 		r.logger.Info("pi run completed",
 			"issue_identifier", issue.Identifier,
 		)

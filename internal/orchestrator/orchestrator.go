@@ -50,7 +50,7 @@ type runningEntry struct {
 	Attempt            *int
 	StartedAt          time.Time
 	SessionID          string
-	LastCodexEvent     string
+	LastCodexEvent     internal.AgentEvent
 	LastCodexTimestamp *time.Time
 	CodexInputTokens   int
 	CodexOutputTokens  int

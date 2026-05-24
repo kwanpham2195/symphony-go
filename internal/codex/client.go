@@ -32,7 +32,7 @@ const (
 
 // TurnResult describes how a turn ended.
 type TurnResult struct {
-	Status    string // "completed", "failed", "cancelled", "timeout", "exit", "input_required"
+	Status    internal.TurnStatus
 	SessionID string
 	ThreadID  string
 	TurnID    string
@@ -247,7 +247,7 @@ func (c *Client) RunTurn(ctx context.Context, sess *Session, issue internal.Issu
 
 	if onUpdate != nil {
 		onUpdate(internal.AgentUpdate{
-			Event:     "session_started",
+			Event:     internal.EventSessionStarted,
 			Timestamp: time.Now().UTC(),
 			SessionID: sessionID,
 		})
@@ -392,19 +392,19 @@ func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string
 	for {
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
-			return &TurnResult{Status: "timeout"}, nil
+			return &TurnResult{Status: internal.TurnStatusTimeout}, nil
 		}
 
 		line, err := sess.readLineWithDeadline(deadline)
 		if err != nil {
-			return &TurnResult{Status: "exit", Details: map[string]any{"error": err.Error()}}, nil
+			return &TurnResult{Status: internal.TurnStatusExit, Details: map[string]any{"error": err.Error()}}, nil
 		}
 
 		var msg map[string]any
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
 			// Non-JSON: stderr diagnostic or malformed
 			if strings.TrimSpace(line) != "" && strings.HasPrefix(strings.TrimSpace(line), "{") {
-				c.emitUpdate(onUpdate, "malformed", sessionID, nil)
+				c.emitUpdate(onUpdate, internal.EventMalformed, sessionID, nil)
 			}
 			continue
 		}
@@ -413,18 +413,18 @@ func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string
 
 		switch method {
 		case "turn/completed":
-			c.emitUpdate(onUpdate, "turn_completed", sessionID, extractUsage(msg))
-			return &TurnResult{Status: "completed"}, nil
+			c.emitUpdate(onUpdate, internal.EventTurnCompleted, sessionID, extractUsage(msg))
+			return &TurnResult{Status: internal.TurnStatusCompleted}, nil
 
 		case "turn/failed":
 			params, _ := msg["params"].(map[string]any)
-			c.emitUpdate(onUpdate, "turn_failed", sessionID, extractUsage(msg))
-			return &TurnResult{Status: "failed", Details: params}, nil
+			c.emitUpdate(onUpdate, internal.EventTurnFailed, sessionID, extractUsage(msg))
+			return &TurnResult{Status: internal.TurnStatusFailed, Details: params}, nil
 
 		case "turn/cancelled":
 			params, _ := msg["params"].(map[string]any)
-			c.emitUpdate(onUpdate, "turn_cancelled", sessionID, extractUsage(msg))
-			return &TurnResult{Status: "cancelled", Details: params}, nil
+			c.emitUpdate(onUpdate, internal.EventTurnCancelled, sessionID, extractUsage(msg))
+			return &TurnResult{Status: internal.TurnStatusCancelled, Details: params}, nil
 
 		case "item/commandExecution/requestApproval",
 			"execCommandApproval",
@@ -437,9 +437,9 @@ func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string
 					"id":     id,
 					"result": map[string]any{"decision": decision},
 				})
-				c.emitUpdate(onUpdate, "approval_auto_approved", sessionID, nil)
+				c.emitUpdate(onUpdate, internal.EventApprovalAutoApproved, sessionID, nil)
 			} else {
-				return &TurnResult{Status: "failed", Details: map[string]any{"reason": "approval_required"}}, nil
+				return &TurnResult{Status: internal.TurnStatusFailed, Details: map[string]any{"reason": "approval_required"}}, nil
 			}
 
 		case "item/tool/call":
@@ -460,9 +460,9 @@ func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string
 					},
 				})
 				if result.Success {
-					c.emitUpdate(onUpdate, "tool_call_completed", sessionID, nil)
+					c.emitUpdate(onUpdate, internal.EventToolCallCompleted, sessionID, nil)
 				} else {
-					c.emitUpdate(onUpdate, "tool_call_failed", sessionID, nil)
+					c.emitUpdate(onUpdate, internal.EventToolCallFailed, sessionID, nil)
 				}
 			} else {
 				_ = sess.send(map[string]any{
@@ -476,23 +476,23 @@ func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string
 						},
 					},
 				})
-				c.emitUpdate(onUpdate, "unsupported_tool_call", sessionID, nil)
+				c.emitUpdate(onUpdate, internal.EventUnsupportedToolCall, sessionID, nil)
 			}
 
 		case "item/tool/requestUserInput":
 			// High-trust: fail the run on user input request
-			c.emitUpdate(onUpdate, "turn_input_required", sessionID, nil)
-			return &TurnResult{Status: "input_required"}, nil
+			c.emitUpdate(onUpdate, internal.EventTurnInputRequired, sessionID, nil)
+			return &TurnResult{Status: internal.TurnStatusInputRequired}, nil
 
 		default:
 			// Check if this is an input-required method
 			if isInputRequired(method, msg) {
-				c.emitUpdate(onUpdate, "turn_input_required", sessionID, nil)
-				return &TurnResult{Status: "input_required"}, nil
+				c.emitUpdate(onUpdate, internal.EventTurnInputRequired, sessionID, nil)
+				return &TurnResult{Status: internal.TurnStatusInputRequired}, nil
 			}
 
 			// Notification: emit and continue
-			c.emitUpdate(onUpdate, "notification", sessionID, extractUsage(msg))
+			c.emitUpdate(onUpdate, internal.EventNotification, sessionID, extractUsage(msg))
 		}
 	}
 }
@@ -508,7 +508,7 @@ func (c *Client) drainStderr(sess *Session) {
 	}
 }
 
-func (c *Client) emitUpdate(onUpdate func(internal.AgentUpdate), event, sessionID string, usage *internal.TokenUsage) {
+func (c *Client) emitUpdate(onUpdate func(internal.AgentUpdate), event internal.AgentEvent, sessionID string, usage *internal.TokenUsage) {
 	if onUpdate == nil {
 		return
 	}
@@ -552,22 +552,9 @@ func extractUsage(msg map[string]any) *internal.TokenUsage {
 		return nil
 	}
 	return &internal.TokenUsage{
-		InputTokens:  intFromAny(usage["input_tokens"]),
-		OutputTokens: intFromAny(usage["output_tokens"]),
-		TotalTokens:  intFromAny(usage["total_tokens"]),
-	}
-}
-
-func intFromAny(v any) int {
-	switch n := v.(type) {
-	case float64:
-		return int(n)
-	case int:
-		return n
-	case int64:
-		return int(n)
-	default:
-		return 0
+		InputTokens:  internal.IntFromAny(usage["input_tokens"]),
+		OutputTokens: internal.IntFromAny(usage["output_tokens"]),
+		TotalTokens:  internal.IntFromAny(usage["total_tokens"]),
 	}
 }
 

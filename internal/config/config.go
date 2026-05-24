@@ -12,6 +12,14 @@ import (
 	"strings"
 )
 
+// RunnerKind identifies which agent runner to use.
+type RunnerKind string
+
+const (
+	RunnerCodex RunnerKind = "codex"
+	RunnerPi    RunnerKind = "pi"
+)
+
 // Sentinel validation errors.
 var (
 	ErrMissingTrackerKind        = errors.New("missing tracker.kind")
@@ -25,7 +33,7 @@ var (
 
 // Config is the typed runtime configuration for symphony.
 type Config struct {
-	Runner    string // "codex" (default) or "pi"
+	Runner    RunnerKind
 	Tracker   TrackerConfig
 	Polling   PollingConfig
 	Workspace WorkspaceConfig
@@ -131,11 +139,11 @@ func (c *Config) Validate() error {
 		return ErrMissingTrackerProjectSlug
 	}
 	switch c.Runner {
-	case "pi":
+	case RunnerPi:
 		if c.Pi.Command == "" {
 			return ErrMissingPiCommand
 		}
-	case "codex", "":
+	case RunnerCodex, "":
 		if c.Codex.Command == "" {
 			return ErrMissingCodexCommand
 		}
@@ -163,7 +171,7 @@ func (c *Config) applyDefaults() {
 	c.Codex.ReadTimeoutMS = 5000
 	c.Codex.StallTimeoutMS = 300000
 	c.Server.Host = "127.0.0.1"
-	c.Runner = "codex"
+	c.Runner = RunnerCodex
 	c.Pi.Command = "pi --mode rpc --no-session --no-extensions"
 	c.Pi.TurnTimeoutMS = 600000
 	c.Pi.ReadTimeoutMS = 30000
@@ -285,7 +293,7 @@ func (c *Config) applyRaw(raw map[string]any) {
 	}
 
 	if v, ok := getString(raw, "runner"); ok {
-		c.Runner = v
+		c.Runner = RunnerKind(v)
 	}
 
 	if pi, ok := getMap(raw, "pi"); ok {

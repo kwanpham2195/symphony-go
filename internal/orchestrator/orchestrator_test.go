@@ -108,7 +108,7 @@ func (f *fakeRunner) Run(ctx context.Context, issue internal.Issue, _ *int, upda
 	}
 
 	updates <- internal.AgentUpdate{
-		Event:     "session_started",
+		Event:     internal.EventSessionStarted,
 		Timestamp: time.Now().UTC(),
 		SessionID: "test-session",
 	}
