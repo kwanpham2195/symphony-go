@@ -73,7 +73,7 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for full details. Summary:
 
 ## Codex Skills
 
-Six skills in `.codex/skills/` for agent workflows: `commit`, `push`, `pull`, `land`, `linear`, `debug`.
+Six skills in `.agents/skills/` for agent workflows: `commit`, `push`, `pull`, `land`, `linear`, `debug`.
 
 ## Upstream Reference
 

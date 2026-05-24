@@ -26,6 +26,7 @@ __debug_bin*
 # Local agent state (keep handoffs)
 .agents/*
 !.agents/handoffs/
+!.agents/skills/
 .pi/
 
 # Override global gitignore — keep .codex/skills checked in

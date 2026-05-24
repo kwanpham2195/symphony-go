@@ -84,7 +84,7 @@ Scope is optional but encouraged — use the package name.
 
 ## Codex Skills
 
-If you're working with Codex agents in this repo, 6 skills are available in `.codex/skills/`:
+If you're working with Codex agents in this repo, 6 skills are available in `.agents/skills/`:
 
 | Skill | When to use |
 |-------|-------------|

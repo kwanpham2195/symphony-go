@@ -96,7 +96,7 @@ Follow GitHub Flow as documented in `CONTRIBUTING.md`:
 
 ## Skills available
 
-Use skills in `.codex/skills/` for git and Linear operations:
+Use skills in `.agents/skills/` for git and Linear operations:
 - `commit` — create conventional commits
 - `push` — push branch and create/update PR
 - `pull` — sync with origin/main, resolve conflicts
