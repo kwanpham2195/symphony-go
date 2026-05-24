@@ -1,4 +1,4 @@
-.PHONY: build test test-race vet check clean validate run run-once release-dry
+.PHONY: build test test-race test-unit vet lint check clean validate run run-once release-dry
 
 # Build the symphony binary
 build:
@@ -11,6 +11,10 @@ test:
 # Run all tests with race detector (matches CI)
 test-race:
 	go test -race -count=1 ./...
+
+# Run unit tests only (no acceptance tests that need network)
+test-unit:
+	go test -race -count=1 ./cmd/... ./internal/...
 
 # Run go vet
 vet:

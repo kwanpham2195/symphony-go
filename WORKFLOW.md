@@ -76,10 +76,12 @@ Read `AGENTS.md` before starting any work.
 ## Build and test
 
 ```bash
-make check    # golangci-lint + go test -race
+make lint       # golangci-lint
+make test-unit  # go test -race (unit tests only, no acceptance)
 ```
 
-All changes must pass `make check` before committing.
+Both must pass before committing. Do not run `make check` — it includes acceptance
+tests that require network access which the sandbox blocks.
 
 ## Git workflow
 
@@ -107,8 +109,9 @@ Use skills in `.codex/skills/` for git and Linear operations:
 1. This is an unattended session. Never ask a human for follow-up actions.
 2. Only stop early for true blockers (missing auth, permissions, secrets).
 3. Work only in this repository copy. Do not touch other paths.
-4. Run `make check` before every commit. Do not commit if it fails.
+4. Run `make lint` and `make test-unit` before every commit. Do not commit if either fails.
 5. Keep files under ~500 lines. Split when they grow.
 6. Add regression tests when fixing bugs.
 7. Use interface fakes for orchestrator tests, not mocks.
 8. Do not use `git add -f`.
+9. Do not write to `.agents/` or `.codex/` directories — the sandbox blocks these.
