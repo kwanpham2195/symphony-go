@@ -19,10 +19,12 @@ var (
 	ErrMissingTrackerAPIKey      = errors.New("missing tracker.api_key (set $LINEAR_API_KEY or tracker.api_key)")
 	ErrMissingTrackerProjectSlug = errors.New("missing tracker.project_slug")
 	ErrMissingCodexCommand       = errors.New("missing codex.command")
+	ErrMissingPiCommand          = errors.New("missing pi.command")
 )
 
 // Config is the typed runtime configuration for symphony.
 type Config struct {
+	Runner    string // "codex" (default) or "pi"
 	Tracker   TrackerConfig
 	Polling   PollingConfig
 	Workspace WorkspaceConfig
@@ -30,6 +32,7 @@ type Config struct {
 	Hooks     HooksConfig
 	Agent     AgentConfig
 	Codex     CodexConfig
+	Pi        PiConfig
 	Server    ServerConfig
 }
 
@@ -94,6 +97,13 @@ type ServerConfig struct {
 	Host string
 }
 
+// PiConfig holds Pi RPC agent launch settings.
+type PiConfig struct {
+	Command       string
+	TurnTimeoutMS int
+	ReadTimeoutMS int
+}
+
 // FromMap builds a Config from raw front matter map, applying defaults and
 // resolving environment variables.
 func FromMap(raw map[string]any) (*Config, error) {
@@ -119,8 +129,15 @@ func (c *Config) Validate() error {
 	if c.Tracker.ProjectSlug == "" {
 		return ErrMissingTrackerProjectSlug
 	}
-	if c.Codex.Command == "" {
-		return ErrMissingCodexCommand
+	switch c.Runner {
+	case "pi":
+		if c.Pi.Command == "" {
+			return ErrMissingPiCommand
+		}
+	default: // "codex" or empty
+		if c.Codex.Command == "" {
+			return ErrMissingCodexCommand
+		}
 	}
 	return nil
 }
@@ -143,6 +160,10 @@ func (c *Config) applyDefaults() {
 	c.Codex.ReadTimeoutMS = 5000
 	c.Codex.StallTimeoutMS = 300000
 	c.Server.Host = "127.0.0.1"
+	c.Runner = "codex"
+	c.Pi.Command = "pi --mode rpc --no-session"
+	c.Pi.TurnTimeoutMS = 600000
+	c.Pi.ReadTimeoutMS = 30000
 }
 
 // applyRaw overlays raw front-matter values onto the config, overriding
@@ -257,6 +278,22 @@ func (c *Config) applyRaw(raw map[string]any) {
 		}
 		if v, ok := getString(server, "host"); ok {
 			c.Server.Host = v
+		}
+	}
+
+	if v, ok := getString(raw, "runner"); ok {
+		c.Runner = v
+	}
+
+	if pi, ok := getMap(raw, "pi"); ok {
+		if v, ok := getString(pi, "command"); ok {
+			c.Pi.Command = v
+		}
+		if v, ok := getInt(pi, "turn_timeout_ms"); ok {
+			c.Pi.TurnTimeoutMS = v
+		}
+		if v, ok := getInt(pi, "read_timeout_ms"); ok {
+			c.Pi.ReadTimeoutMS = v
 		}
 	}
 }
