@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -97,6 +98,39 @@ func TestRunTurn_Completed(t *testing.T) {
 	}
 	if updates[len(updates)-1] != "turn_completed" {
 		t.Errorf("last update = %q", updates[len(updates)-1])
+	}
+}
+
+func TestRunTurn_DefaultsToDangerFullAccessTurnPolicy(t *testing.T) {
+	traceFile := filepath.Join(t.TempDir(), "turn.json")
+	t.Setenv("TRACE_FILE", traceFile)
+
+	cfg := testConfig("trace_turn.sh")
+	cfg.Codex.ThreadSandbox = "danger-full-access"
+	c := NewClient(cfg, nil)
+
+	workspace := t.TempDir()
+	sess, err := c.StartSession(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("StartSession error: %v", err)
+	}
+	defer c.StopSession(sess)
+
+	issue := domain.Issue{Identifier: "T-7", Title: "Trace sandbox policy"}
+	result, err := c.RunTurn(context.Background(), sess, issue, "Prompt", nil)
+	if err != nil {
+		t.Fatalf("RunTurn error: %v", err)
+	}
+	if result.Status != "completed" {
+		t.Errorf("status = %q, want completed", result.Status)
+	}
+
+	payload, err := os.ReadFile(traceFile)
+	if err != nil {
+		t.Fatalf("read trace: %v", err)
+	}
+	if !strings.Contains(string(payload), `"sandboxPolicy":{"type":"dangerFullAccess"}`) {
+		t.Fatalf("turn/start payload did not use dangerFullAccess: %s", payload)
 	}
 }
 

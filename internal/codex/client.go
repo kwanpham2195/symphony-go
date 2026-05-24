@@ -215,12 +215,7 @@ func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue,
 
 	turnSandboxPolicy := cfg.Codex.TurnSandboxPolicy
 	if turnSandboxPolicy == nil {
-		turnSandboxPolicy = map[string]any{
-			"type":           "workspaceWrite",
-			"writableRoots":  []string{sess.workspace},
-			"readOnlyAccess": map[string]any{"type": "fullAccess"},
-			"networkAccess":  false,
-		}
+		turnSandboxPolicy = defaultTurnSandboxPolicy(cfg.Codex.ThreadSandbox, sess.workspace)
 	}
 
 	// Send turn/start
@@ -268,6 +263,25 @@ func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue,
 	result.ThreadID = sess.threadID
 	result.TurnID = turnID
 	return result, nil
+}
+
+func defaultTurnSandboxPolicy(threadSandbox string, workspace string) map[string]any {
+	switch threadSandbox {
+	case "danger-full-access":
+		return map[string]any{"type": "dangerFullAccess"}
+	case "read-only":
+		return map[string]any{
+			"type":          "readOnly",
+			"networkAccess": false,
+		}
+	default:
+		return map[string]any{
+			"type":           "workspaceWrite",
+			"writableRoots":  []string{workspace},
+			"readOnlyAccess": map[string]any{"type": "fullAccess"},
+			"networkAccess":  false,
+		}
+	}
 }
 
 // StopSession terminates the app-server subprocess.

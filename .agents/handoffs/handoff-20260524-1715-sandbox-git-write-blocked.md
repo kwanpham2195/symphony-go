@@ -3,7 +3,7 @@ slug: sandbox-git-write-blocked
 created_at: 2026-05-24T17:15:00+07:00
 branch: main
 head: 5d57ffb
-status: blocked
+status: ready
 ---
 
 # Handoff: Codex sandbox blocks .git/ writes on macOS
@@ -68,12 +68,14 @@ the purpose of autonomous orchestration.
 
 ## Key Findings
 
-- The `.git/` write restriction is enforced by the **macOS seatbelt sandbox
-  profile** compiled into the codex binary, not by the protocol-level
-  `sandboxPolicy` or `thread_sandbox` settings.
-- Changing `thread_sandbox` to `danger-full-access` does not override seatbelt.
-- This is a codex runtime limitation on macOS, not a symphony-go bug.
-- The same limitation likely does not exist on Linux (bubblewrap sandbox).
+- The original seatbelt conclusion was too broad.
+- Codex can write `.git/` on macOS when the command runs with real
+  `danger-full-access`. Evidence: `codex exec -s danger-full-access -a never`
+  ran `git add a.txt` successfully in a temp repo.
+- Symphony ignored `thread_sandbox: danger-full-access` when it built the
+  default `turn/start` sandbox policy and still sent `workspaceWrite`.
+- Root cause: app-server turn policy and thread sandbox were split. The thread
+  used `danger-full-access`; the turn used implicit `workspaceWrite`.
 
 ## Open Questions
 
@@ -89,30 +91,14 @@ the purpose of autonomous orchestration.
 
 ## Recommended Next Change
 
-Options in order of preference:
+Use `thread_sandbox` when building the implicit turn sandbox policy:
 
-1. **Ask the codex/OpenAI team** if there's a config flag to allow `.git/`
-   writes in the seatbelt profile (e.g., `--config sandbox.allow_git=true`).
+- `danger-full-access` -> `{"type":"dangerFullAccess"}`
+- `read-only` -> `{"type":"readOnly","networkAccess":false}`
+- default / `workspace-write` -> existing `workspaceWrite` policy rooted at
+  the issue workspace
 
-2. **Add an `after_run` hook** that applies the agent's patch file and commits:
-   ```yaml
-   hooks:
-     after_run: |
-       if [ -f /tmp/cfw-*.patch ]; then
-         git apply /tmp/cfw-*.patch
-         git add -A
-         git commit -m "apply agent patch"
-         git push origin HEAD
-       fi
-   ```
-   Downside: agent can't iterate on PR feedback since commits happen outside
-   the session.
-
-3. **Run on Linux** — use Docker or a Linux VM where bubblewrap is the sandbox
-   instead of seatbelt.
-
-4. **File a feature request** with OpenAI to add `.git/` to the seatbelt
-   writable paths when `danger-full-access` is set.
+Keep explicit `codex.turn_sandbox_policy` pass-through unchanged.
 
 ## Candidate Files
 
@@ -123,7 +109,15 @@ Options in order of preference:
 ## Validation / Commands
 
 ```bash
-# Reproduce the issue
+# Verify focused regression
+GO111MODULE=on go test ./internal/codex -run TestRunTurn_DefaultsToDangerFullAccessTurnPolicy -count=1
+
+# Full gates run after fix
+GO111MODULE=on go test ./...
+GO111MODULE=on go vet ./...
+GO111MODULE=on go build ./...
+
+# Historical reproduction before this fix
 cd ~/code/symphony-go-workspaces/CFW-53
 touch test.txt && git add test.txt
 # Expected: fatal: Unable to create '.git/index.lock': Operation not permitted

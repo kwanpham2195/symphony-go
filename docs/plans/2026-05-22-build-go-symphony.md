@@ -37,6 +37,9 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 - [x] 2026-05-22: Add `linear_graphql` dynamic tool (M8).
 - [x] 2026-05-22: Add SSH worker pool after local workers are stable (M9).
 - [x] 2026-05-22: Real Linear smoke test passed (M10).
+- [x] 2026-05-24: Fixed Codex app-server turn sandbox default so
+  `thread_sandbox: danger-full-access` sends `sandboxPolicy.type:
+  dangerFullAccess` on `turn/start`.
 
 ## Surprises & Discoveries
 
@@ -60,6 +63,14 @@ Build this in slices. The first slice proves the local Linear -> workspace -> Co
 
 - Observation: Go 1.25.0 is the local stable Go version.
   Evidence: `go version` returned `go1.25.0 darwin/arm64`.
+
+- Observation: The macOS `.git/index.lock` failure was not caused by
+  `danger-full-access` itself. `codex exec -s danger-full-access -a never`
+  can run `git add`. Symphony was still sending a default `workspaceWrite`
+  turn policy even when the workflow set `thread_sandbox: danger-full-access`.
+  Evidence: regression test captured `turn/start` payload with
+  `sandboxPolicy.type=workspaceWrite`; the fix now captures
+  `sandboxPolicy.type=dangerFullAccess`.
 
 ## Decision Log
 
