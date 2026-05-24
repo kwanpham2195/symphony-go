@@ -20,7 +20,7 @@ func fakePiScript(name string) string {
 
 func piTestConfig(script string) *config.Config {
 	return &config.Config{
-		Runner:    "pi",
+		Runner:    config.RunnerPi,
 		Workspace: config.WorkspaceConfig{Root: os.TempDir()},
 		Agent:     config.AgentConfig{MaxTurns: 5},
 		Pi: config.PiConfig{
@@ -53,7 +53,7 @@ func TestPiRunner_Run_Success(t *testing.T) {
 	}
 
 	// Collect updates
-	var events []string
+	var events []internal.AgentEvent
 	for u := range updates {
 		events = append(events, u.Event)
 	}
@@ -62,9 +62,9 @@ func TestPiRunner_Run_Success(t *testing.T) {
 	var gotStart, gotEnd bool
 	for _, e := range events {
 		switch e {
-		case "session_started":
+		case internal.EventSessionStarted:
 			gotStart = true
-		case "turn_completed":
+		case internal.EventTurnCompleted:
 			gotEnd = true
 		}
 	}

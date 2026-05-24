@@ -17,7 +17,7 @@ func testdataPath(name string) string {
 func testConfig(fakeScript string) *config.Config {
 	absScript, _ := filepath.Abs(testdataPath(fakeScript))
 	return &config.Config{
-		Runner: "pi",
+		Runner: config.RunnerPi,
 		Pi: config.PiConfig{
 			Command:       absScript,
 			TurnTimeoutMS: 10000,
@@ -69,7 +69,7 @@ func TestSendPrompt_Success(t *testing.T) {
 		t.Fatalf("SendPrompt error: %v", err)
 	}
 
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("Status = %q, want completed", result.Status)
 	}
 
@@ -78,9 +78,9 @@ func TestSendPrompt_Success(t *testing.T) {
 	var gotStart, gotEnd bool
 	for _, u := range updates {
 		switch u.Event {
-		case "session_started":
+		case internal.EventSessionStarted:
 			gotStart = true
-		case "turn_completed":
+		case internal.EventTurnCompleted:
 			gotEnd = true
 		}
 	}
@@ -179,7 +179,7 @@ func TestSendPrompt_CompactionEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SendPrompt error: %v", err)
 	}
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("Status = %q, want completed", result.Status)
 	}
 
@@ -188,9 +188,9 @@ func TestSendPrompt_CompactionEvents(t *testing.T) {
 	var gotCompactStart, gotCompactEnd bool
 	for _, u := range updates {
 		switch u.Event {
-		case "compaction_started":
+		case internal.EventCompactionStarted:
 			gotCompactStart = true
-		case "compaction_ended":
+		case internal.EventCompactionEnded:
 			gotCompactEnd = true
 		}
 	}
@@ -217,7 +217,7 @@ func TestSendPrompt_ExtensionUIIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SendPrompt error: %v", err)
 	}
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("Status = %q, want completed", result.Status)
 	}
 }
@@ -279,7 +279,7 @@ func TestSendPrompt_DialogUIAutoCancelled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SendPrompt error: %v", err)
 	}
-	if result.Status != "completed" {
+	if result.Status != internal.TurnStatusCompleted {
 		t.Errorf("Status = %q, want completed (dialog should be auto-cancelled)", result.Status)
 	}
 }

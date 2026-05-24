@@ -79,7 +79,7 @@ func main() {
 		fmt.Printf("  max turns: %d\n", cfg.Agent.MaxTurns)
 		fmt.Printf("  runner: %s\n", cfg.Runner)
 		switch cfg.Runner {
-		case "pi":
+		case config.RunnerPi:
 			fmt.Printf("  pi command: %s\n", cfg.Pi.Command)
 		default:
 			fmt.Printf("  codex command: %s\n", cfg.Codex.Command)
@@ -102,7 +102,7 @@ func main() {
 	var promptUp promptUpdater
 
 	switch cfg.Runner {
-	case "pi":
+	case config.RunnerPi:
 		piClient := pi.NewClient(cfg, logger)
 		piRunner := runner.NewPiRunner(cfg, wsMgr, piClient, wf.PromptTemplate, logger)
 		agentRunner = piRunner

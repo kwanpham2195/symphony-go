@@ -116,7 +116,7 @@ func (r *Runner) Run(ctx context.Context, issue internal.Issue, attempt *int, up
 		}
 
 		switch result.Status {
-		case "completed":
+		case internal.TurnStatusCompleted:
 			r.logger.Info("turn completed",
 				"issue_identifier", issue.Identifier,
 				"turn", turn+1,
@@ -125,10 +125,10 @@ func (r *Runner) Run(ctx context.Context, issue internal.Issue, attempt *int, up
 			// Continue to next turn if issue is still active
 			// (orchestrator reconciliation handles stopping)
 
-		case "failed", "cancelled", "timeout", "exit":
+		case internal.TurnStatusFailed, internal.TurnStatusCancelled, internal.TurnStatusTimeout, internal.TurnStatusExit:
 			return fmt.Errorf("turn %d ended: %s", turn+1, result.Status)
 
-		case "input_required":
+		case internal.TurnStatusInputRequired:
 			return fmt.Errorf("turn %d: user input required (non-interactive)", turn+1)
 		}
 	}
