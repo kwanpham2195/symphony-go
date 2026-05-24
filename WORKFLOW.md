@@ -92,6 +92,7 @@ Follow GitHub Flow as documented in `CONTRIBUTING.md`:
 4. Push and create/update PR using the `push` skill.
 5. Attach the PR to the Linear issue using the `linear` skill.
 6. Move the issue to `In Progress` when starting work.
+7. After pushing the PR, move the issue to `In Review` using the `linear` skill.
 
 ## Skills available
 

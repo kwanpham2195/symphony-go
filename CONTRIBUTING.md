@@ -28,9 +28,10 @@ main ──────●──────●──────●──
 1. Create a branch from `main`
 2. Make changes, run `make check`
 3. Push and open a PR against `main`
-4. CI must pass + 1 review required
-5. Squash-merge (only merge method allowed)
-6. Branch auto-deletes after merge
+4. Move the Linear issue to **In Review** (stops the orchestrator from re-dispatching)
+5. CI must pass + 1 review required
+6. Squash-merge (only merge method allowed)
+7. Branch auto-deletes after merge
 
 ### Branch protection on `main`
 

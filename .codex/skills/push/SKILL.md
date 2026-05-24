@@ -46,6 +46,8 @@ description:
    ```bash
    gh pr view --json url -q .url
    ```
+9. Move the Linear issue to **In Review** using the `linear` skill so the
+   orchestrator stops re-dispatching.
 
 ## Notes
 

@@ -107,9 +107,30 @@ query InspectInput($name: String!) {
 }
 ```
 
+## Post-PR Workflow
+
+After pushing a PR, move the issue to **In Review** so the orchestrator stops
+re-dispatching:
+
+1. Fetch the team's workflow states to get the exact `stateId` for "In Review".
+2. Update the issue state:
+   ```graphql
+   mutation MoveIssue($id: String!, $stateId: String!) {
+     issueUpdate(id: $id, input: { stateId: $stateId }) {
+       success
+       issue { id identifier state { name } }
+     }
+   }
+   ```
+3. Attach the PR URL to the issue.
+
+"In Review" is a non-active, non-terminal state. The orchestrator will stop the
+agent but keep the workspace intact for human review.
+
 ## Rules
 
 - Use `linear_graphql` for all Linear API access. Do not use raw tokens in shell commands.
 - Fetch team states before state transitions — use the exact `stateId`.
 - Prefer the narrowest issue lookup: key → identifier search → internal id.
 - Prefer `attachmentLinkGitHubPR` over generic URL attachment for PRs.
+- After creating a PR, always move the issue to "In Review".
