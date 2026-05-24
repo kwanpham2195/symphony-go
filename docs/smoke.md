@@ -134,8 +134,8 @@ You should see logs like:
 
 ```
 level=INFO msg="orchestrator starting" poll_interval_ms=5000 max_concurrent_agents=1
-level=INFO msg="dispatching issue" issue_id=... issue_identifier=CFW-43
-level=INFO msg="turn completed" issue_identifier=CFW-43 turn=1 session_id=smoke-thread-001-smoke-turn-001
+level=INFO msg="dispatching issue" issue_id=... issue_identifier=ENG-43
+level=INFO msg="turn completed" issue_identifier=ENG-43 turn=1 session_id=smoke-thread-001-smoke-turn-001
 level=INFO msg="agent completed; scheduling continuation check" ...
 ```
 
@@ -144,7 +144,7 @@ The service will keep re-dispatching (issue is still in Todo). Press Ctrl+C afte
 ## 6. Verify the workspace
 
 ```bash
-cat /tmp/symphony_go_smoke_workspaces/CFW-43/hello.txt
+cat /tmp/symphony_go_smoke_workspaces/ENG-43/hello.txt
 ```
 
 Expected output:

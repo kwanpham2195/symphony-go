@@ -15,7 +15,7 @@ description:
 
 ## Correlation Keys
 
-- `issue_identifier`: human ticket key (e.g., `CFW-44`)
+- `issue_identifier`: human ticket key (e.g., `ENG-44`)
 - `issue_id`: Linear UUID
 - `session_id`: Codex thread-turn pair (`<thread_id>-<turn_id>`)
 
@@ -30,7 +30,7 @@ description:
 
 ```bash
 # Search by ticket key
-rg -n "issue_identifier=CFW-44" /path/to/logs
+rg -n "issue_identifier=ENG-44" /path/to/logs
 
 # Pull session IDs for that ticket
 rg -o "session_id=[^ ;]+" /path/to/logs | sort -u

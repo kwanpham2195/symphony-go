@@ -16,12 +16,12 @@ We use **GitHub Flow**: feature branches off `main`, squash-merge PRs.
 main ──────●──────●──────●──
             \          /
              ●───●───●
-             CFW-44/assignee-routing
+             ENG-44/assignee-routing
 ```
 
 ### Branch naming
 
-`<issue-key>/<short-description>` — e.g., `CFW-44/assignee-routing`
+`<issue-key>/<short-description>` — e.g., `ENG-44/assignee-routing`
 
 ### Workflow
 
