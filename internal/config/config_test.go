@@ -415,7 +415,7 @@ func TestFromMap_RunnerPi(t *testing.T) {
 	cfg, err := FromMap(map[string]any{
 		"runner": "pi",
 		"pi": map[string]any{
-			"command":         "pi --mode rpc --no-session",
+			"command":         "pi --mode rpc --no-session --no-extensions",
 			"read_timeout_ms": 15000,
 			"turn_timeout_ms": 300000,
 		},
@@ -426,8 +426,8 @@ func TestFromMap_RunnerPi(t *testing.T) {
 	if cfg.Runner != "pi" {
 		t.Errorf("Runner = %q, want pi", cfg.Runner)
 	}
-	if cfg.Pi.Command != "pi --mode rpc --no-session" {
-		t.Errorf("Pi.Command = %q, want pi --mode rpc --no-session", cfg.Pi.Command)
+	if cfg.Pi.Command != "pi --mode rpc --no-session --no-extensions" {
+		t.Errorf("Pi.Command = %q, want pi --mode rpc --no-session --no-extensions", cfg.Pi.Command)
 	}
 	if cfg.Pi.ReadTimeoutMS != 15000 {
 		t.Errorf("Pi.ReadTimeoutMS = %d, want 15000", cfg.Pi.ReadTimeoutMS)
@@ -444,7 +444,7 @@ func TestFromMap_PiDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FromMap error: %v", err)
 	}
-	if cfg.Pi.Command != "pi --mode rpc --no-session" {
+	if cfg.Pi.Command != "pi --mode rpc --no-session --no-extensions" {
 		t.Errorf("Pi.Command = %q, want default", cfg.Pi.Command)
 	}
 	if cfg.Pi.ReadTimeoutMS != 30000 {
@@ -511,7 +511,7 @@ func validPiConfig() *Config {
 			ProjectSlug: "test-proj",
 		},
 		Pi: PiConfig{
-			Command: "pi --mode rpc --no-session",
+			Command: "pi --mode rpc --no-session --no-extensions",
 		},
 	}
 }

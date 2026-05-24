@@ -164,7 +164,7 @@ func (c *Config) applyDefaults() {
 	c.Codex.StallTimeoutMS = 300000
 	c.Server.Host = "127.0.0.1"
 	c.Runner = "codex"
-	c.Pi.Command = "pi --mode rpc --no-session"
+	c.Pi.Command = "pi --mode rpc --no-session --no-extensions"
 	c.Pi.TurnTimeoutMS = 600000
 	c.Pi.ReadTimeoutMS = 30000
 }
