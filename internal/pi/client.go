@@ -332,12 +332,36 @@ func (c *Client) streamEvents(ctx context.Context, sess *Session, sessionID stri
 			c.emitUpdate(onUpdate, "auto_retry_ended", sessionID, nil)
 
 		case "extension_ui_request":
-			// Fire-and-forget methods: no response needed.
-			// Dialog methods would need auto-cancel, but in practice
-			// --no-session + headless mode should not trigger them.
-			c.logger.Debug("pi extension_ui_request (ignored)",
-				"method", msg["method"],
-			)
+			method, _ := msg["method"].(string)
+			id, _ := msg["id"].(string)
+			// Dialog methods block Pi until a response arrives on stdin.
+			// Auto-cancel so the headless run continues.
+			switch method {
+			case "select", "input", "editor":
+				_ = sess.send(map[string]any{
+					"type":      "extension_ui_response",
+					"id":        id,
+					"cancelled": true,
+				})
+				c.logger.Debug("pi extension_ui_request auto-cancelled",
+					"method", method, "id", id,
+				)
+			case "confirm":
+				_ = sess.send(map[string]any{
+					"type":      "extension_ui_response",
+					"id":        id,
+					"confirmed": false,
+				})
+				c.logger.Debug("pi extension_ui_request auto-declined",
+					"method", method, "id", id,
+				)
+			default:
+				// Fire-and-forget methods (setStatus, setWidget, etc.):
+				// no response needed.
+				c.logger.Debug("pi extension_ui_request (fire-and-forget)",
+					"method", method,
+				)
+			}
 
 		case "extension_error":
 			c.logger.Warn("pi extension error",

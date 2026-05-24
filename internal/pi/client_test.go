@@ -263,3 +263,23 @@ func TestStopSession_Nil(t *testing.T) {
 		t.Fatalf("StopSession(nil) error: %v", err)
 	}
 }
+
+func TestSendPrompt_DialogUIAutoCancelled(t *testing.T) {
+	cfg := testConfig("dialog_ui.sh")
+	c := NewClient(cfg, nil)
+
+	workspace := t.TempDir()
+	sess, err := c.StartSession(context.Background(), workspace)
+	if err != nil {
+		t.Fatalf("StartSession error: %v", err)
+	}
+	defer c.StopSession(sess)
+
+	result, err := c.SendPrompt(context.Background(), sess, "test", nil)
+	if err != nil {
+		t.Fatalf("SendPrompt error: %v", err)
+	}
+	if result.Status != "completed" {
+		t.Errorf("Status = %q, want completed (dialog should be auto-cancelled)", result.Status)
+	}
+}

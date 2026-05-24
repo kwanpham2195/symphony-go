@@ -515,3 +515,15 @@ func validPiConfig() *Config {
 		},
 	}
 }
+
+func TestValidate_UnsupportedRunner(t *testing.T) {
+	cfg := validConfig()
+	cfg.Runner = "pii"
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for unsupported runner value")
+	}
+	if !strings.Contains(err.Error(), "unsupported runner") {
+		t.Fatalf("expected unsupported runner error, got: %v", err)
+	}
+}

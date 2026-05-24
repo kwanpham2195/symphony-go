@@ -20,6 +20,7 @@ var (
 	ErrMissingTrackerProjectSlug = errors.New("missing tracker.project_slug")
 	ErrMissingCodexCommand       = errors.New("missing codex.command")
 	ErrMissingPiCommand          = errors.New("missing pi.command")
+	ErrUnsupportedRunner         = errors.New("unsupported runner")
 )
 
 // Config is the typed runtime configuration for symphony.
@@ -134,10 +135,12 @@ func (c *Config) Validate() error {
 		if c.Pi.Command == "" {
 			return ErrMissingPiCommand
 		}
-	default: // "codex" or empty
+	case "codex", "":
 		if c.Codex.Command == "" {
 			return ErrMissingCodexCommand
 		}
+	default:
+		return fmt.Errorf("%w: %q (valid: codex, pi)", ErrUnsupportedRunner, c.Runner)
 	}
 	return nil
 }
