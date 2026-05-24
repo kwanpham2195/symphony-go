@@ -34,7 +34,7 @@ func (t *LinearGraphQL) Spec() map[string]any {
 	return map[string]any{
 		"name":        "linear_graphql",
 		"description": "Execute a raw GraphQL query or mutation against Linear using Symphony's configured auth.",
-		"parameters": map[string]any{
+		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"query": map[string]any{
