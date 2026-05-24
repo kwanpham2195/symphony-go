@@ -75,6 +75,15 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for full details. Summary:
 
 Six skills in `.agents/skills/` for agent workflows: `commit`, `push`, `pull`, `land`, `linear`, `debug`.
 
+## Releases
+
+Automated via GoReleaser on tag push. Cross-compiles for linux/darwin amd64/arm64.
+
+```bash
+git tag v0.x.0
+git push origin v0.x.0
+```
+
 ## Upstream Reference
 
 Upstream: [openai/symphony](https://github.com/openai/symphony). Key files: `SPEC.md`, `elixir/lib/symphony_elixir/orchestrator.ex`, `elixir/lib/symphony_elixir/codex/app_server.ex`.
