@@ -1,5 +1,5 @@
 ---
-name: symphony-go
+name: symphony
 description: Set up, configure, run, and troubleshoot symphony-go — an autonomous agent orchestrator that polls Linear issues and runs Codex sessions. Use when the user asks to install symphony, create a WORKFLOW.md, configure Linear integration, start the orchestrator, debug stuck agents, fix failing hooks, tune retry/backoff, set up workspaces, or any task related to running symphony-go in a repository.
 ---
 
