@@ -9,6 +9,36 @@ This is a Go implementation of [OpenAI's Symphony](https://github.com/openai/sym
 > [!WARNING]
 > Early-stage software. Run in trusted environments only. The default `approval_policy: never` auto-approves all agent actions.
 
+## Prerequisites
+
+**Codex CLI** — Symphony launches [Codex](https://github.com/openai/codex) as its agent backend. Install it and sign in (or set `OPENAI_API_KEY`):
+
+```bash
+npm install -g @openai/codex
+codex --version   # should print codex-cli 0.1xx.x
+```
+
+**Linear account + API key** — Symphony reads issues from [Linear](https://linear.app). Create a personal API key at [Linear Settings → API](https://linear.app/settings/api):
+
+1. Create an API key with read/write access.
+2. Export it: `export LINEAR_API_KEY=lin_api_...`
+
+**Linear project** — Create a project in Linear and note its **slug** (the short ID in the project URL, e.g. `004d9e34fd6a`). Symphony polls this project for issues in "Todo" or "In Progress" states.
+
+**A git repository** — The agent needs a codebase to work in. Your workflow's `after_create` hook should clone it into each workspace (see [Quick Start](#quick-start)).
+
+**Go 1.25+** — Only needed if building from source. Pre-built binaries are available on the [Releases](https://github.com/kwanpham2195/symphony-go/releases) page.
+
+## Supported Trackers
+
+| Tracker | Status | Notes |
+|---------|--------|-------|
+| [Linear](https://linear.app) | Supported | GraphQL API, project-based polling, pagination |
+| GitHub Issues | Not yet | Planned — the `Tracker` interface is pluggable |
+| Jira | Not yet | Planned |
+
+The orchestrator talks to a `Tracker` interface, not Linear directly. Adding a new tracker means implementing one interface with a few methods (fetch candidate issues, fetch by IDs). See [`internal/tracker/tracker.go`](internal/tracker/tracker.go) for the interface definition.
+
 ## How It Works
 
 ```
