@@ -34,7 +34,7 @@ agent:
 codex:
   command: codex app-server
   approval_policy: never
-  thread_sandbox: workspace-write
+  thread_sandbox: danger-full-access
 server:
   port: 8080
 ---
@@ -113,4 +113,3 @@ Use skills in `.codex/skills/` for git and Linear operations:
 6. Add regression tests when fixing bugs.
 7. Use interface fakes for orchestrator tests, not mocks.
 8. Do not use `git add -f`.
-9. Do not write to `.agents/` or `.codex/` directories — the sandbox blocks these.
