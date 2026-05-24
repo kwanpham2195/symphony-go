@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal"
 )
 
 func TestRenderPrompt_BasicInterpolation(t *testing.T) {
 	tmpl := "Working on {{ issue.identifier }}: {{ issue.title }}"
-	issue := domain.Issue{
+	issue := internal.Issue{
 		Identifier: "ABC-123",
 		Title:      "Fix bug",
 	}
@@ -24,7 +24,7 @@ func TestRenderPrompt_BasicInterpolation(t *testing.T) {
 
 func TestRenderPrompt_WithAttempt(t *testing.T) {
 	tmpl := `{% if attempt %}Retry #{{ attempt }}{% endif %}Issue: {{ issue.identifier }}`
-	issue := domain.Issue{Identifier: "X-1"}
+	issue := internal.Issue{Identifier: "X-1"}
 	attempt := 3
 	out, err := RenderPrompt(tmpl, issue, &attempt)
 	if err != nil {
@@ -40,7 +40,7 @@ func TestRenderPrompt_WithAttempt(t *testing.T) {
 
 func TestRenderPrompt_NoAttempt(t *testing.T) {
 	tmpl := `{% if attempt %}Retry{% endif %}First run for {{ issue.identifier }}`
-	issue := domain.Issue{Identifier: "Y-2"}
+	issue := internal.Issue{Identifier: "Y-2"}
 	out, err := RenderPrompt(tmpl, issue, nil)
 	if err != nil {
 		t.Fatalf("RenderPrompt error: %v", err)
@@ -51,7 +51,7 @@ func TestRenderPrompt_NoAttempt(t *testing.T) {
 }
 
 func TestRenderPrompt_EmptyTemplate(t *testing.T) {
-	issue := domain.Issue{Identifier: "Z-3"}
+	issue := internal.Issue{Identifier: "Z-3"}
 	out, err := RenderPrompt("", issue, nil)
 	if err != nil {
 		t.Fatalf("RenderPrompt error: %v", err)
@@ -65,7 +65,7 @@ func TestRenderPrompt_DescriptionConditional(t *testing.T) {
 	tmpl := `{% if issue.description %}{{ issue.description }}{% else %}No description.{% endif %}`
 
 	t.Run("with description", func(t *testing.T) {
-		issue := domain.Issue{Description: "Fix the login flow"}
+		issue := internal.Issue{Description: "Fix the login flow"}
 		out, err := RenderPrompt(tmpl, issue, nil)
 		if err != nil {
 			t.Fatalf("error: %v", err)
@@ -76,7 +76,7 @@ func TestRenderPrompt_DescriptionConditional(t *testing.T) {
 	})
 
 	t.Run("without description", func(t *testing.T) {
-		issue := domain.Issue{}
+		issue := internal.Issue{}
 		out, err := RenderPrompt(tmpl, issue, nil)
 		if err != nil {
 			t.Fatalf("error: %v", err)
@@ -89,7 +89,7 @@ func TestRenderPrompt_DescriptionConditional(t *testing.T) {
 
 func TestRenderPrompt_Labels(t *testing.T) {
 	tmpl := "Labels: {{ issue.labels }}"
-	issue := domain.Issue{Labels: []string{"bug", "urgent"}}
+	issue := internal.Issue{Labels: []string{"bug", "urgent"}}
 	out, err := RenderPrompt(tmpl, issue, nil)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -102,7 +102,7 @@ func TestRenderPrompt_Labels(t *testing.T) {
 func TestRenderPrompt_Priority(t *testing.T) {
 	tmpl := "Priority: {{ issue.priority }}"
 	p := 1
-	issue := domain.Issue{Priority: &p}
+	issue := internal.Issue{Priority: &p}
 	out, err := RenderPrompt(tmpl, issue, nil)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -135,7 +135,7 @@ Description:
 No description provided.
 {% endif %}`
 
-	issue := domain.Issue{
+	issue := internal.Issue{
 		Identifier:  "SYM-42",
 		Title:       "Implement workflow parsing",
 		State:       "In Progress",

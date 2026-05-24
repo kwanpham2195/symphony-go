@@ -18,9 +18,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/codex/tools"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 const (
@@ -207,7 +207,7 @@ func (c *Client) StartSession(ctx context.Context, workspace string) (*Session, 
 
 // RunTurn starts a turn on an existing session and streams events until the
 // turn completes, fails, or times out.
-func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue, prompt string, onUpdate func(domain.AgentUpdate)) (*TurnResult, error) {
+func (c *Client) RunTurn(ctx context.Context, sess *Session, issue internal.Issue, prompt string, onUpdate func(internal.AgentUpdate)) (*TurnResult, error) {
 	cfg := c.loadConfig()
 
 	approvalPolicy := cfg.Codex.ApprovalPolicy
@@ -246,7 +246,7 @@ func (c *Client) RunTurn(ctx context.Context, sess *Session, issue domain.Issue,
 	sessionID := sess.threadID + "-" + turnID
 
 	if onUpdate != nil {
-		onUpdate(domain.AgentUpdate{
+		onUpdate(internal.AgentUpdate{
 			Event:     "session_started",
 			Timestamp: time.Now().UTC(),
 			SessionID: sessionID,
@@ -386,7 +386,7 @@ func (s *Session) Close() error {
 
 // --- Turn streaming ---
 
-func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string, turnTimeout time.Duration, autoApprove bool, onUpdate func(domain.AgentUpdate)) (*TurnResult, error) {
+func (c *Client) streamTurn(ctx context.Context, sess *Session, sessionID string, turnTimeout time.Duration, autoApprove bool, onUpdate func(internal.AgentUpdate)) (*TurnResult, error) {
 	deadline := time.Now().Add(turnTimeout)
 
 	for {
@@ -508,11 +508,11 @@ func (c *Client) drainStderr(sess *Session) {
 	}
 }
 
-func (c *Client) emitUpdate(onUpdate func(domain.AgentUpdate), event, sessionID string, usage *domain.TokenUsage) {
+func (c *Client) emitUpdate(onUpdate func(internal.AgentUpdate), event, sessionID string, usage *internal.TokenUsage) {
 	if onUpdate == nil {
 		return
 	}
-	onUpdate(domain.AgentUpdate{
+	onUpdate(internal.AgentUpdate{
 		Event:     event,
 		Timestamp: time.Now().UTC(),
 		SessionID: sessionID,
@@ -546,12 +546,12 @@ func extractTurnID(result map[string]any) string {
 	return id
 }
 
-func extractUsage(msg map[string]any) *domain.TokenUsage {
+func extractUsage(msg map[string]any) *internal.TokenUsage {
 	usage, ok := msg["usage"].(map[string]any)
 	if !ok {
 		return nil
 	}
-	return &domain.TokenUsage{
+	return &internal.TokenUsage{
 		InputTokens:  intFromAny(usage["input_tokens"]),
 		OutputTokens: intFromAny(usage["output_tokens"]),
 		TotalTokens:  intFromAny(usage["total_tokens"]),

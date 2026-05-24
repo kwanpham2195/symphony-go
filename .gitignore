@@ -6,6 +6,7 @@
 
 # Go
 vendor/
+.cache/
 
 # OS
 .DS_Store

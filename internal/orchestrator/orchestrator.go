@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 const (
@@ -26,27 +26,27 @@ const (
 
 // Tracker is the issue tracker read interface.
 type Tracker interface {
-	FetchCandidateIssues(ctx context.Context) ([]domain.Issue, error)
-	FetchIssuesByStates(ctx context.Context, states []string) ([]domain.Issue, error)
-	FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]domain.Issue, error)
+	FetchCandidateIssues(ctx context.Context) ([]internal.Issue, error)
+	FetchIssuesByStates(ctx context.Context, states []string) ([]internal.Issue, error)
+	FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]internal.Issue, error)
 }
 
 // WorkspaceManager handles workspace lifecycle.
 type WorkspaceManager interface {
-	CreateForIssue(ctx context.Context, issue domain.Issue) (domain.Workspace, error)
+	CreateForIssue(ctx context.Context, issue internal.Issue) (internal.Workspace, error)
 	RemoveIssueWorkspace(ctx context.Context, identifier string) error
-	RunBeforeRunHook(ctx context.Context, ws domain.Workspace, issue domain.Issue) error
-	RunAfterRunHook(ctx context.Context, ws domain.Workspace, issue domain.Issue)
+	RunBeforeRunHook(ctx context.Context, ws internal.Workspace, issue internal.Issue) error
+	RunAfterRunHook(ctx context.Context, ws internal.Workspace, issue internal.Issue)
 }
 
 // AgentRunner runs a codex session for an issue.
 type AgentRunner interface {
-	Run(ctx context.Context, issue domain.Issue, attempt *int, updates chan<- domain.AgentUpdate) error
+	Run(ctx context.Context, issue internal.Issue, attempt *int, updates chan<- internal.AgentUpdate) error
 }
 
 // runningEntry tracks an active worker.
 type runningEntry struct {
-	Issue              domain.Issue
+	Issue              internal.Issue
 	Attempt            *int
 	StartedAt          time.Time
 	SessionID          string
@@ -58,16 +58,6 @@ type runningEntry struct {
 	TurnCount          int
 	WorkerHost         string // empty for local
 	cancel             context.CancelFunc
-}
-
-// retryEntry tracks a scheduled retry.
-type retryEntry struct {
-	IssueID    string
-	Identifier string
-	Attempt    int
-	DueAt      time.Time
-	Error      string
-	Timer      *time.Timer
 }
 
 // Deps holds the orchestrator dependencies.
@@ -178,9 +168,9 @@ type Orchestrator struct {
 	mu            sync.Mutex
 	running       map[string]*runningEntry // issue_id -> entry
 	claimed       map[string]bool          // issue_id -> true
-	retryAttempts map[string]*retryEntry   // issue_id -> entry
+	retryAttempts map[string]*RetryEntry   // issue_id -> entry
 	completed     map[string]bool          // issue_id -> true
-	codexTotals   domain.CodexTotals
+	codexTotals   CodexTotals
 	rateLimits    map[string]any
 	endedSeconds  float64
 	stopCh        chan struct{}
@@ -200,7 +190,7 @@ func New(deps Deps) *Orchestrator {
 		logger:        deps.Logger,
 		running:       make(map[string]*runningEntry),
 		claimed:       make(map[string]bool),
-		retryAttempts: make(map[string]*retryEntry),
+		retryAttempts: make(map[string]*RetryEntry),
 		completed:     make(map[string]bool),
 		stopCh:        make(chan struct{}),
 		ctx:           ctx,
@@ -265,14 +255,14 @@ func (o *Orchestrator) Tick(ctx context.Context) {
 }
 
 // Snapshot returns a point-in-time view of the orchestrator state.
-func (o *Orchestrator) Snapshot() domain.Snapshot {
+func (o *Orchestrator) Snapshot() Snapshot {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	now := time.Now()
-	running := make([]domain.RunningRow, 0, len(o.running))
+	running := make([]RunningRow, 0, len(o.running))
 	for _, e := range o.running {
-		running = append(running, domain.RunningRow{
+		running = append(running, RunningRow{
 			IssueID:         e.Issue.ID,
 			IssueIdentifier: e.Issue.Identifier,
 			SessionID:       e.SessionID,
@@ -281,9 +271,9 @@ func (o *Orchestrator) Snapshot() domain.Snapshot {
 		})
 	}
 
-	retrying := make([]domain.RetryRow, 0, len(o.retryAttempts))
+	retrying := make([]RetryRow, 0, len(o.retryAttempts))
 	for _, r := range o.retryAttempts {
-		retrying = append(retrying, domain.RetryRow{
+		retrying = append(retrying, RetryRow{
 			IssueID:    r.IssueID,
 			Identifier: r.Identifier,
 			Attempt:    r.Attempt,
@@ -298,10 +288,10 @@ func (o *Orchestrator) Snapshot() domain.Snapshot {
 		totalSeconds += now.Sub(e.StartedAt).Seconds()
 	}
 
-	return domain.Snapshot{
+	return Snapshot{
 		Running:  running,
 		Retrying: retrying,
-		CodexTotals: domain.CodexTotals{
+		CodexTotals: CodexTotals{
 			InputTokens:    o.codexTotals.InputTokens,
 			OutputTokens:   o.codexTotals.OutputTokens,
 			TotalTokens:    o.codexTotals.TotalTokens,
@@ -390,7 +380,7 @@ func (o *Orchestrator) reconcileStates(ctx context.Context) {
 		return
 	}
 
-	issueMap := make(map[string]domain.Issue, len(issues))
+	issueMap := make(map[string]internal.Issue, len(issues))
 	for _, issue := range issues {
 		issueMap[issue.ID] = issue
 	}
@@ -443,7 +433,7 @@ func (o *Orchestrator) reconcileStates(ctx context.Context) {
 	}
 }
 
-func (o *Orchestrator) dispatch(ctx context.Context, issues []domain.Issue) {
+func (o *Orchestrator) dispatch(ctx context.Context, issues []internal.Issue) {
 	activeSet := stateSet(o.deps.Config.Tracker.ActiveStates)
 	terminalSet := stateSet(o.deps.Config.Tracker.TerminalStates)
 
@@ -455,7 +445,7 @@ func (o *Orchestrator) dispatch(ctx context.Context, issues []domain.Issue) {
 	}
 }
 
-func (o *Orchestrator) shouldDispatch(issue domain.Issue, activeSet, terminalSet map[string]bool) bool {
+func (o *Orchestrator) shouldDispatch(issue internal.Issue, activeSet, terminalSet map[string]bool) bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -502,7 +492,7 @@ func (o *Orchestrator) shouldDispatch(issue domain.Issue, activeSet, terminalSet
 	return true
 }
 
-func (o *Orchestrator) stateSlotAvailable(issue domain.Issue) bool {
+func (o *Orchestrator) stateSlotAvailable(issue internal.Issue) bool {
 	normState := strings.ToLower(strings.TrimSpace(issue.State))
 
 	limit, hasLimit := o.deps.Config.Agent.MaxConcurrentAgentsByState[normState]
@@ -528,7 +518,7 @@ func (o *Orchestrator) availableSlots() int {
 	return 0
 }
 
-func (o *Orchestrator) dispatchIssue(ctx context.Context, issue domain.Issue, attempt *int) {
+func (o *Orchestrator) dispatchIssue(ctx context.Context, issue internal.Issue, attempt *int) {
 	// Select worker host
 	var workerHost string
 	if o.deps.WorkerPool != nil {
@@ -573,7 +563,7 @@ func (o *Orchestrator) dispatchIssue(ctx context.Context, issue domain.Issue, at
 	go o.runAgent(workerCtx, issue, attempt, workerHost)
 }
 
-func (o *Orchestrator) runAgent(ctx context.Context, issue domain.Issue, attempt *int, workerHost string) {
+func (o *Orchestrator) runAgent(ctx context.Context, issue internal.Issue, attempt *int, workerHost string) {
 	// Release worker pool slot when done
 	defer func() {
 		if o.deps.WorkerPool != nil && workerHost != "" {
@@ -581,7 +571,7 @@ func (o *Orchestrator) runAgent(ctx context.Context, issue domain.Issue, attempt
 		}
 	}()
 
-	updates := make(chan domain.AgentUpdate, 64)
+	updates := make(chan internal.AgentUpdate, 64)
 
 	// Process updates in background
 	go func() {
@@ -626,7 +616,7 @@ func (o *Orchestrator) runAgent(ctx context.Context, issue domain.Issue, attempt
 	}
 }
 
-func (o *Orchestrator) handleAgentUpdate(issueID string, update domain.AgentUpdate) {
+func (o *Orchestrator) handleAgentUpdate(issueID string, update internal.AgentUpdate) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -671,7 +661,7 @@ func (o *Orchestrator) scheduleRetryLocked(issueID, identifier string, attempt i
 	delay := retryDelay(attempt, errMsg == "", o.deps.Config.Agent.MaxRetryBackoffMS)
 	dueAt := time.Now().Add(delay)
 
-	entry := &retryEntry{
+	entry := &RetryEntry{
 		IssueID:    issueID,
 		Identifier: identifier,
 		Attempt:    attempt,
@@ -733,7 +723,7 @@ func (o *Orchestrator) handleRetry(issueID string, attempt int) {
 		return
 	}
 
-	var found *domain.Issue
+	var found *internal.Issue
 	for i := range issues {
 		if issues[i].ID == issueID {
 			found = &issues[i]
@@ -826,8 +816,8 @@ func (o *Orchestrator) stopAll() {
 
 // --- sorting ---
 
-func sortForDispatch(issues []domain.Issue) []domain.Issue {
-	sorted := make([]domain.Issue, len(issues))
+func sortForDispatch(issues []internal.Issue) []internal.Issue {
+	sorted := make([]internal.Issue, len(issues))
 	copy(sorted, issues)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		pi := priorityRank(sorted[i].Priority)

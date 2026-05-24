@@ -27,9 +27,9 @@ LINEAR_API_KEY=... go run ./cmd/symphony --validate-only ./testdata/workflows/mi
 | Package | Owns |
 |---------|------|
 | `cmd/symphony` | CLI entry point. Wires all components. |
+| `internal` | Shared cross-package types: `Issue`, `Workspace`, `Workflow`, `AgentUpdate`, etc. |
 | `internal/config` | Typed config from WORKFLOW.md front matter. Defaults, `$VAR` env, `~` expansion, validation. |
 | `internal/workflow` | WORKFLOW.md parser (YAML front matter + body). Liquid prompt renderer. |
-| `internal/domain` | Shared types: `Issue`, `Workspace`, `Snapshot`, `AgentUpdate`, etc. |
 | `internal/tracker` | `Tracker` interface (read-only). |
 | `internal/tracker/linear` | Linear GraphQL client. Pagination, normalization, `ExecuteGraphQL`. |
 | `internal/workspace` | Per-issue workspace lifecycle: create/reuse/remove, path safety, hooks. |

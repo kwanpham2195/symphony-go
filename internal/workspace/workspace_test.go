@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 func testConfig(root string) *config.Config {
@@ -101,7 +101,7 @@ func TestCreateForIssue_NewWorkspace(t *testing.T) {
 	cfg := testConfig(root)
 	mgr := NewManager(cfg, nil)
 
-	issue := domain.Issue{Identifier: "SYM-1", ID: "id-1"}
+	issue := internal.Issue{Identifier: "SYM-1", ID: "id-1"}
 	ws, err := mgr.CreateForIssue(context.Background(), issue)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -132,7 +132,7 @@ func TestCreateForIssue_ReuseExisting(t *testing.T) {
 	// Write a file to prove reuse preserves data
 	os.WriteFile(filepath.Join(wsPath, "data.txt"), []byte("keep"), 0o644)
 
-	issue := domain.Issue{Identifier: "SYM-2"}
+	issue := internal.Issue{Identifier: "SYM-2"}
 	ws, err := mgr.CreateForIssue(context.Background(), issue)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -156,7 +156,7 @@ func TestCreateForIssue_StaleFile(t *testing.T) {
 	stalePath := filepath.Join(root, "SYM-3")
 	os.WriteFile(stalePath, []byte("stale"), 0o644)
 
-	issue := domain.Issue{Identifier: "SYM-3"}
+	issue := internal.Issue{Identifier: "SYM-3"}
 	ws, err := mgr.CreateForIssue(context.Background(), issue)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -175,7 +175,7 @@ func TestCreateForIssue_IdentifierSanitized(t *testing.T) {
 	cfg := testConfig(root)
 	mgr := NewManager(cfg, nil)
 
-	issue := domain.Issue{Identifier: "TEAM/123"}
+	issue := internal.Issue{Identifier: "TEAM/123"}
 	ws, err := mgr.CreateForIssue(context.Background(), issue)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -193,7 +193,7 @@ func TestCreateForIssue_AfterCreateHook(t *testing.T) {
 	cfg.Hooks.AfterCreate = "echo created > hook_ran.txt"
 	mgr := NewManager(cfg, nil)
 
-	issue := domain.Issue{Identifier: "HOOK-1"}
+	issue := internal.Issue{Identifier: "HOOK-1"}
 	ws, err := mgr.CreateForIssue(context.Background(), issue)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -214,7 +214,7 @@ func TestCreateForIssue_AfterCreateHookNotOnReuse(t *testing.T) {
 	// Pre-create workspace
 	os.MkdirAll(filepath.Join(root, "HOOK-2"), 0o755)
 
-	issue := domain.Issue{Identifier: "HOOK-2"}
+	issue := internal.Issue{Identifier: "HOOK-2"}
 	ws, err := mgr.CreateForIssue(context.Background(), issue)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -231,7 +231,7 @@ func TestCreateForIssue_AfterCreateHookFailure(t *testing.T) {
 	cfg.Hooks.AfterCreate = "exit 1"
 	mgr := NewManager(cfg, nil)
 
-	issue := domain.Issue{Identifier: "HOOK-FAIL"}
+	issue := internal.Issue{Identifier: "HOOK-FAIL"}
 	_, err := mgr.CreateForIssue(context.Background(), issue)
 	if err == nil {
 		t.Fatal("expected error for hook failure")
@@ -254,8 +254,8 @@ func TestBeforeRunHook(t *testing.T) {
 
 	wsPath := filepath.Join(root, "BR-1")
 	os.MkdirAll(wsPath, 0o755)
-	ws := domain.Workspace{Path: wsPath}
-	issue := domain.Issue{Identifier: "BR-1"}
+	ws := internal.Workspace{Path: wsPath}
+	issue := internal.Issue{Identifier: "BR-1"}
 
 	err := mgr.RunBeforeRunHook(context.Background(), ws, issue)
 	if err != nil {
@@ -275,8 +275,8 @@ func TestBeforeRunHook_Failure(t *testing.T) {
 
 	wsPath := filepath.Join(root, "BR-FAIL")
 	os.MkdirAll(wsPath, 0o755)
-	ws := domain.Workspace{Path: wsPath}
-	issue := domain.Issue{Identifier: "BR-FAIL"}
+	ws := internal.Workspace{Path: wsPath}
+	issue := internal.Issue{Identifier: "BR-FAIL"}
 
 	err := mgr.RunBeforeRunHook(context.Background(), ws, issue)
 	if err == nil {
@@ -292,8 +292,8 @@ func TestAfterRunHook_FailureIgnored(t *testing.T) {
 
 	wsPath := filepath.Join(root, "AR-1")
 	os.MkdirAll(wsPath, 0o755)
-	ws := domain.Workspace{Path: wsPath}
-	issue := domain.Issue{Identifier: "AR-1"}
+	ws := internal.Workspace{Path: wsPath}
+	issue := internal.Issue{Identifier: "AR-1"}
 
 	// Should not panic or return error
 	mgr.RunAfterRunHook(context.Background(), ws, issue)
@@ -362,7 +362,7 @@ func TestHookTimeout(t *testing.T) {
 	cfg.Hooks.AfterCreate = "sleep 10"
 	mgr := NewManager(cfg, nil)
 
-	issue := domain.Issue{Identifier: "TIMEOUT-1"}
+	issue := internal.Issue{Identifier: "TIMEOUT-1"}
 	_, err := mgr.CreateForIssue(context.Background(), issue)
 	if err == nil {
 		t.Fatal("expected timeout error")
@@ -379,7 +379,7 @@ func TestCreateForIssue_EmptyIdentifier(t *testing.T) {
 	cfg := testConfig(root)
 	mgr := NewManager(cfg, nil)
 
-	issue := domain.Issue{Identifier: ""}
+	issue := internal.Issue{Identifier: ""}
 	ws, err := mgr.CreateForIssue(context.Background(), issue)
 	if err != nil {
 		t.Fatalf("error: %v", err)

@@ -19,7 +19,6 @@ import (
 	"github.com/kwanpham2195/symphony-go/internal/codex"
 	"github.com/kwanpham2195/symphony-go/internal/codex/tools"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 	"github.com/kwanpham2195/symphony-go/internal/orchestrator"
 	"github.com/kwanpham2195/symphony-go/internal/runner"
 	"github.com/kwanpham2195/symphony-go/internal/server"
@@ -311,7 +310,7 @@ func TestAcceptance_FailedTurn_SchedulesRetry(t *testing.T) {
 
 	// Wait for turn to fail
 	deadline := time.Now().Add(5 * time.Second)
-	var snap domain.Snapshot
+	var snap orchestrator.Snapshot
 	for time.Now().Before(deadline) {
 		snap = orch.Snapshot()
 		if len(snap.Running) == 0 && len(snap.Retrying) > 0 {

@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal/orchestrator"
 )
 
 // SnapshotProvider returns a point-in-time orchestrator snapshot.
 type SnapshotProvider interface {
-	Snapshot() domain.Snapshot
+	Snapshot() orchestrator.Snapshot
 }
 
 // RefreshRequester triggers an immediate poll cycle.

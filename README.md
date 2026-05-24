@@ -104,9 +104,9 @@ Only run in environments where you trust the Codex agent's actions.
 ```
 cmd/symphony/              CLI entry point, wires all components
 internal/
+  *.go                     Shared types: Issue, Workspace, Workflow, AgentUpdate
   config/                  Typed config: defaults, $VAR env, ~ expansion, validation
   workflow/                WORKFLOW.md parser, Liquid prompt renderer, fsnotify watcher
-  domain/                  Shared types: Issue, Workspace, Snapshot, AgentUpdate
   tracker/                 Tracker interface (read-only)
   tracker/linear/          Linear GraphQL client, pagination, normalization
   workspace/               Per-issue workspace lifecycle, path safety, hooks

@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
+	"github.com/kwanpham2195/symphony-go/internal"
 )
 
 // Watcher watches a workflow file for changes and calls a reload callback.
@@ -14,14 +14,14 @@ type Watcher struct {
 	path     string
 	logger   *slog.Logger
 	watcher  *fsnotify.Watcher
-	onReload func(*domain.Workflow)
+	onReload func(*internal.Workflow)
 	stopCh   chan struct{}
 	once     sync.Once
 }
 
 // NewWatcher creates a watcher for the given workflow file path.
 // onReload is called with the new workflow whenever the file changes.
-func NewWatcher(path string, onReload func(*domain.Workflow), logger *slog.Logger) (*Watcher, error) {
+func NewWatcher(path string, onReload func(*internal.Workflow), logger *slog.Logger) (*Watcher, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}

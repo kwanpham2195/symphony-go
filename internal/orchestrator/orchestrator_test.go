@@ -7,21 +7,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kwanpham2195/symphony-go/internal"
 	"github.com/kwanpham2195/symphony-go/internal/config"
-	"github.com/kwanpham2195/symphony-go/internal/domain"
 )
 
 // --- Fakes ---
 
 type fakeTracker struct {
 	mu         sync.Mutex
-	candidates []domain.Issue
-	byStates   []domain.Issue
-	byIDs      []domain.Issue
+	candidates []internal.Issue
+	byStates   []internal.Issue
+	byIDs      []internal.Issue
 	fetchErr   error
 }
 
-func (f *fakeTracker) FetchCandidateIssues(_ context.Context) ([]domain.Issue, error) {
+func (f *fakeTracker) FetchCandidateIssues(_ context.Context) ([]internal.Issue, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.fetchErr != nil {
@@ -30,13 +30,13 @@ func (f *fakeTracker) FetchCandidateIssues(_ context.Context) ([]domain.Issue, e
 	return f.candidates, nil
 }
 
-func (f *fakeTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]domain.Issue, error) {
+func (f *fakeTracker) FetchIssuesByStates(_ context.Context, _ []string) ([]internal.Issue, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.byStates, nil
 }
 
-func (f *fakeTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]domain.Issue, error) {
+func (f *fakeTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]internal.Issue, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.fetchErr != nil {
@@ -47,7 +47,7 @@ func (f *fakeTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]
 	if source == nil {
 		source = f.candidates
 	}
-	var out []domain.Issue
+	var out []internal.Issue
 	for _, id := range ids {
 		for _, issue := range source {
 			if issue.ID == id {
@@ -65,11 +65,11 @@ type fakeWorkspace struct {
 	hookErr error
 }
 
-func (f *fakeWorkspace) CreateForIssue(_ context.Context, issue domain.Issue) (domain.Workspace, error) {
+func (f *fakeWorkspace) CreateForIssue(_ context.Context, issue internal.Issue) (internal.Workspace, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.created = append(f.created, issue.Identifier)
-	return domain.Workspace{Path: "/tmp/ws/" + issue.Identifier, WorkspaceKey: issue.Identifier, CreatedNow: true}, nil
+	return internal.Workspace{Path: "/tmp/ws/" + issue.Identifier, WorkspaceKey: issue.Identifier, CreatedNow: true}, nil
 }
 
 func (f *fakeWorkspace) RemoveIssueWorkspace(_ context.Context, identifier string) error {
@@ -79,13 +79,13 @@ func (f *fakeWorkspace) RemoveIssueWorkspace(_ context.Context, identifier strin
 	return nil
 }
 
-func (f *fakeWorkspace) RunBeforeRunHook(_ context.Context, _ domain.Workspace, _ domain.Issue) error {
+func (f *fakeWorkspace) RunBeforeRunHook(_ context.Context, _ internal.Workspace, _ internal.Issue) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.hookErr
 }
 
-func (f *fakeWorkspace) RunAfterRunHook(_ context.Context, _ domain.Workspace, _ domain.Issue) {}
+func (f *fakeWorkspace) RunAfterRunHook(_ context.Context, _ internal.Workspace, _ internal.Issue) {}
 
 type fakeRunner struct {
 	mu      sync.Mutex
@@ -95,7 +95,7 @@ type fakeRunner struct {
 	blockCh chan struct{} // if non-nil, blocks until closed (after sending update)
 }
 
-func (f *fakeRunner) Run(ctx context.Context, issue domain.Issue, _ *int, updates chan<- domain.AgentUpdate) error {
+func (f *fakeRunner) Run(ctx context.Context, issue internal.Issue, _ *int, updates chan<- internal.AgentUpdate) error {
 	f.mu.Lock()
 	f.runs = append(f.runs, issue.ID)
 	delay := f.delay
@@ -107,7 +107,7 @@ func (f *fakeRunner) Run(ctx context.Context, issue domain.Issue, _ *int, update
 		time.Sleep(delay)
 	}
 
-	updates <- domain.AgentUpdate{
+	updates <- internal.AgentUpdate{
 		Event:     "session_started",
 		Timestamp: time.Now().UTC(),
 		SessionID: "test-session",
@@ -155,8 +155,8 @@ func testCfg() *config.Config {
 
 func intPtr(n int) *int { return &n }
 
-func makeIssue(id, identifier, state string, priority *int, createdAt *time.Time) domain.Issue {
-	return domain.Issue{
+func makeIssue(id, identifier, state string, priority *int, createdAt *time.Time) internal.Issue {
+	return internal.Issue{
 		ID:         id,
 		Identifier: identifier,
 		Title:      identifier + " title",
@@ -172,7 +172,7 @@ func TestSortForDispatch(t *testing.T) {
 	t1 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	t2 := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
 
-	issues := []domain.Issue{
+	issues := []internal.Issue{
 		makeIssue("c", "C-3", "Todo", intPtr(3), &t1),
 		makeIssue("a", "A-1", "Todo", intPtr(1), &t2),
 		makeIssue("b", "B-1", "Todo", intPtr(1), &t1),
@@ -200,7 +200,7 @@ func TestSortForDispatch(t *testing.T) {
 
 func TestTick_DispatchesEligibleIssues(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 			makeIssue("id-2", "SYM-2", "In Progress", intPtr(2), nil),
 		},
@@ -232,7 +232,7 @@ func TestTick_RespectsMaxConcurrency(t *testing.T) {
 	cfg.Agent.MaxConcurrentAgents = 1
 
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 			makeIssue("id-2", "SYM-2", "Todo", intPtr(2), nil),
 		},
@@ -261,7 +261,7 @@ func TestTick_RespectsMaxConcurrency(t *testing.T) {
 
 func TestTick_NoDuplicateDispatch(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 		},
 	}
@@ -289,7 +289,7 @@ func TestTick_NoDuplicateDispatch(t *testing.T) {
 
 func TestTick_SkipsTerminalIssues(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Done", intPtr(1), nil),
 		},
 	}
@@ -314,14 +314,14 @@ func TestTick_SkipsTerminalIssues(t *testing.T) {
 
 func TestTick_TodoBlockerRule(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			{
 				ID:         "id-1",
 				Identifier: "SYM-1",
 				Title:      "Blocked",
 				State:      "Todo",
 				Priority:   intPtr(1),
-				BlockedBy: []domain.Blocker{
+				BlockedBy: []internal.Blocker{
 					{ID: "blocker-1", State: "In Progress"}, // non-terminal
 				},
 			},
@@ -348,14 +348,14 @@ func TestTick_TodoBlockerRule(t *testing.T) {
 
 func TestTick_TodoBlockerTerminalAllowed(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			{
 				ID:         "id-1",
 				Identifier: "SYM-1",
 				Title:      "Unblocked",
 				State:      "Todo",
 				Priority:   intPtr(1),
-				BlockedBy: []domain.Blocker{
+				BlockedBy: []internal.Blocker{
 					{ID: "blocker-1", State: "Done"}, // terminal
 				},
 			},
@@ -385,7 +385,7 @@ func TestTick_PerStateConcurrency(t *testing.T) {
 	cfg.Agent.MaxConcurrentAgentsByState = map[string]int{"todo": 1}
 
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 			makeIssue("id-2", "SYM-2", "Todo", intPtr(2), nil),
 		},
@@ -418,7 +418,7 @@ func TestReconcile_TerminalStopsAndCleansWorkspace(t *testing.T) {
 	cfg.Codex.StallTimeoutMS = 0 // disable stall
 
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 		},
 	}
@@ -437,7 +437,7 @@ func TestReconcile_TerminalStopsAndCleansWorkspace(t *testing.T) {
 
 	// Now change tracker state to terminal
 	tracker.mu.Lock()
-	tracker.candidates = []domain.Issue{
+	tracker.candidates = []internal.Issue{
 		makeIssue("id-1", "SYM-1", "Done", intPtr(1), nil),
 	}
 	tracker.mu.Unlock()
@@ -472,7 +472,7 @@ func TestReconcile_NonActiveStopsWithoutCleanup(t *testing.T) {
 	cfg.Codex.StallTimeoutMS = 0
 
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "In Progress", intPtr(1), nil),
 		},
 	}
@@ -491,7 +491,7 @@ func TestReconcile_NonActiveStopsWithoutCleanup(t *testing.T) {
 
 	// Change to non-active, non-terminal
 	tracker.mu.Lock()
-	tracker.candidates = []domain.Issue{
+	tracker.candidates = []internal.Issue{
 		makeIssue("id-1", "SYM-1", "Human Review", intPtr(1), nil),
 	}
 	tracker.mu.Unlock()
@@ -572,7 +572,7 @@ func TestSnapshot_Empty(t *testing.T) {
 
 func TestHandleAgentUpdate_TurnCountStartsAtOne(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 		},
 	}
@@ -614,7 +614,7 @@ func TestHandleAgentUpdate_TurnCountStartsAtOne(t *testing.T) {
 
 func TestHandleRetry_RespectsShutdown(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 		},
 	}
@@ -666,7 +666,7 @@ func TestHandleRetry_RespectsShutdown(t *testing.T) {
 func TestHandleRetry_StoppedGuard(t *testing.T) {
 	// Directly test that handleRetry does not dispatch after stopped=true.
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 		},
 	}
@@ -681,7 +681,7 @@ func TestHandleRetry_StoppedGuard(t *testing.T) {
 
 	// Plant a retry entry manually
 	o.mu.Lock()
-	o.retryAttempts["id-1"] = &retryEntry{
+	o.retryAttempts["id-1"] = &RetryEntry{
 		IssueID:    "id-1",
 		Identifier: "SYM-1",
 		Attempt:    1,
@@ -707,7 +707,7 @@ func TestHandleRetry_StoppedGuard(t *testing.T) {
 
 func TestAgentFailure_SchedulesRetry(t *testing.T) {
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 		},
 	}
@@ -757,7 +757,7 @@ func TestTick_InvalidConfig_SkipsDispatch(t *testing.T) {
 	cfg.Tracker.Kind = "" // invalid
 
 	tracker := &fakeTracker{
-		candidates: []domain.Issue{
+		candidates: []internal.Issue{
 			makeIssue("id-1", "SYM-1", "Todo", intPtr(1), nil),
 		},
 	}
