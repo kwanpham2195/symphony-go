@@ -32,3 +32,4 @@ __debug_bin*
 # Override global gitignore — keep .codex/skills checked in
 !.codex/
 !.codex/skills/
+WORKFLOW.md
