@@ -1,0 +1,23 @@
+{
+  "skill_name": "symphony-go",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Set up symphony-go for my repo at github.com/acme/backend so it picks up Linear issues from my project and runs codex agents on them",
+      "expected_output": "Creates a WORKFLOW.md with correct tracker config, hooks for git clone, codex settings, and instructions to export LINEAR_API_KEY and run symphony",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "My symphony agent keeps failing with 'Unable to create .git/index.lock: Operation not permitted'. How do I fix this?",
+      "expected_output": "Identifies the sandbox mode as the cause and recommends setting thread_sandbox to danger-full-access in the codex config section of WORKFLOW.md",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Symphony is running but not picking up any issues from Linear. The dashboard shows no running agents. What should I check?",
+      "expected_output": "Walks through checklist: verify project_slug, active_states match Linear workflow names, LINEAR_API_KEY is valid, concurrency limits, and suggests testing the API key with curl",
+      "files": []
+    }
+  ]
+}
