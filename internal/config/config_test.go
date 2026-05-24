@@ -401,6 +401,92 @@ func TestValidate_MissingCodexCommand(t *testing.T) {
 	}
 }
 
+func TestFromMap_RunnerDefault(t *testing.T) {
+	cfg, err := FromMap(map[string]any{})
+	if err != nil {
+		t.Fatalf("FromMap error: %v", err)
+	}
+	if cfg.Runner != "codex" {
+		t.Errorf("Runner = %q, want codex", cfg.Runner)
+	}
+}
+
+func TestFromMap_RunnerPi(t *testing.T) {
+	cfg, err := FromMap(map[string]any{
+		"runner": "pi",
+		"pi": map[string]any{
+			"command":         "pi --mode rpc --no-session --no-extensions",
+			"read_timeout_ms": 15000,
+			"turn_timeout_ms": 300000,
+		},
+	})
+	if err != nil {
+		t.Fatalf("FromMap error: %v", err)
+	}
+	if cfg.Runner != "pi" {
+		t.Errorf("Runner = %q, want pi", cfg.Runner)
+	}
+	if cfg.Pi.Command != "pi --mode rpc --no-session --no-extensions" {
+		t.Errorf("Pi.Command = %q, want pi --mode rpc --no-session --no-extensions", cfg.Pi.Command)
+	}
+	if cfg.Pi.ReadTimeoutMS != 15000 {
+		t.Errorf("Pi.ReadTimeoutMS = %d, want 15000", cfg.Pi.ReadTimeoutMS)
+	}
+	if cfg.Pi.TurnTimeoutMS != 300000 {
+		t.Errorf("Pi.TurnTimeoutMS = %d, want 300000", cfg.Pi.TurnTimeoutMS)
+	}
+}
+
+func TestFromMap_PiDefaults(t *testing.T) {
+	cfg, err := FromMap(map[string]any{
+		"runner": "pi",
+	})
+	if err != nil {
+		t.Fatalf("FromMap error: %v", err)
+	}
+	if cfg.Pi.Command != "pi --mode rpc --no-session --no-extensions" {
+		t.Errorf("Pi.Command = %q, want default", cfg.Pi.Command)
+	}
+	if cfg.Pi.ReadTimeoutMS != 30000 {
+		t.Errorf("Pi.ReadTimeoutMS = %d, want 30000", cfg.Pi.ReadTimeoutMS)
+	}
+	if cfg.Pi.TurnTimeoutMS != 600000 {
+		t.Errorf("Pi.TurnTimeoutMS = %d, want 600000", cfg.Pi.TurnTimeoutMS)
+	}
+}
+
+func TestValidate_PiRunner_Valid(t *testing.T) {
+	cfg := validPiConfig()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidate_PiRunner_MissingPiCommand(t *testing.T) {
+	cfg := validPiConfig()
+	cfg.Pi.Command = ""
+	err := cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "missing pi.command") {
+		t.Fatalf("expected missing pi.command, got: %v", err)
+	}
+}
+
+func TestValidate_PiRunner_DoesNotRequireCodexCommand(t *testing.T) {
+	cfg := validPiConfig()
+	cfg.Codex.Command = ""
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("pi runner should not require codex.command, got: %v", err)
+	}
+}
+
+func TestValidate_CodexRunner_DoesNotRequirePiCommand(t *testing.T) {
+	cfg := validConfig()
+	cfg.Pi.Command = ""
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("codex runner should not require pi.command, got: %v", err)
+	}
+}
+
 // --- helpers ---
 
 func validConfig() *Config {
@@ -413,5 +499,31 @@ func validConfig() *Config {
 		Codex: CodexConfig{
 			Command: "codex app-server",
 		},
+	}
+}
+
+func validPiConfig() *Config {
+	return &Config{
+		Runner: "pi",
+		Tracker: TrackerConfig{
+			Kind:        "linear",
+			APIKey:      "tok_test",
+			ProjectSlug: "test-proj",
+		},
+		Pi: PiConfig{
+			Command: "pi --mode rpc --no-session --no-extensions",
+		},
+	}
+}
+
+func TestValidate_UnsupportedRunner(t *testing.T) {
+	cfg := validConfig()
+	cfg.Runner = "pii"
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for unsupported runner value")
+	}
+	if !strings.Contains(err.Error(), "unsupported runner") {
+		t.Fatalf("expected unsupported runner error, got: %v", err)
 	}
 }

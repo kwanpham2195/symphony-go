@@ -26,6 +26,7 @@ import (
 	"github.com/kwanpham2195/symphony-go/internal/config"
 	"github.com/kwanpham2195/symphony-go/internal/observability"
 	"github.com/kwanpham2195/symphony-go/internal/orchestrator"
+	"github.com/kwanpham2195/symphony-go/internal/pi"
 	"github.com/kwanpham2195/symphony-go/internal/runner"
 	"github.com/kwanpham2195/symphony-go/internal/server"
 	linearClient "github.com/kwanpham2195/symphony-go/internal/tracker/linear"
@@ -76,7 +77,13 @@ func main() {
 		fmt.Printf("  workspace root: %s\n", cfg.Workspace.Root)
 		fmt.Printf("  max agents: %d\n", cfg.Agent.MaxConcurrentAgents)
 		fmt.Printf("  max turns: %d\n", cfg.Agent.MaxTurns)
-		fmt.Printf("  codex command: %s\n", cfg.Codex.Command)
+		fmt.Printf("  runner: %s\n", cfg.Runner)
+		switch cfg.Runner {
+		case "pi":
+			fmt.Printf("  pi command: %s\n", cfg.Pi.Command)
+		default:
+			fmt.Printf("  codex command: %s\n", cfg.Codex.Command)
+		}
 		if cfg.Server.Port > 0 {
 			fmt.Printf("  server: %s:%d\n", cfg.Server.Host, cfg.Server.Port)
 		}
@@ -86,12 +93,31 @@ func main() {
 	// Build components
 	tracker := linearClient.NewClient(cfg.Tracker.Endpoint, cfg.Tracker.APIKey, cfg.Tracker.ProjectSlug, cfg.Tracker.ActiveStates)
 	wsMgr := workspace.NewManager(cfg, logger)
-	codexClient := codex.NewClient(cfg, logger)
 
-	// Register dynamic tools
-	codexClient.RegisterTool(tools.NewLinearGraphQL(tracker))
+	// Select runner based on config
+	var agentRunner orchestrator.AgentRunner
+	type configReloader interface{ UpdateConfig(*config.Config) }
+	type promptUpdater interface{ UpdatePrompt(string) }
+	var reloader configReloader
+	var promptUp promptUpdater
 
-	agentRunner := runner.New(cfg, wsMgr, codexClient, wf.PromptTemplate, logger)
+	switch cfg.Runner {
+	case "pi":
+		piClient := pi.NewClient(cfg, logger)
+		piRunner := runner.NewPiRunner(cfg, wsMgr, piClient, wf.PromptTemplate, logger)
+		agentRunner = piRunner
+		reloader = piClient
+		promptUp = piRunner
+		logger.Info("using Pi RPC runner", "command", cfg.Pi.Command)
+	default:
+		codexClient := codex.NewClient(cfg, logger)
+		codexClient.RegisterTool(tools.NewLinearGraphQL(tracker))
+		codexRunner := runner.New(cfg, wsMgr, codexClient, wf.PromptTemplate, logger)
+		agentRunner = codexRunner
+		reloader = codexClient
+		promptUp = codexRunner
+		logger.Info("using Codex runner", "command", cfg.Codex.Command)
+	}
 
 	orch := orchestrator.New(orchestrator.Deps{
 		Tracker:    tracker,
@@ -127,8 +153,8 @@ func main() {
 		}
 		// Update components atomically
 		wsMgr.UpdateConfig(newCfg)
-		codexClient.UpdateConfig(newCfg)
-		agentRunner.UpdatePrompt(newWF.PromptTemplate)
+		reloader.UpdateConfig(newCfg)
+		promptUp.UpdatePrompt(newWF.PromptTemplate)
 		logger.Info("config reloaded from workflow")
 	}, logger)
 	if err != nil {

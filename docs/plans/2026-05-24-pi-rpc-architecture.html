@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFW-51: Pi RPC Runner Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+      margin-bottom: 2rem;
+    }
+    .diagram-container h2 {
+      font-size: 0.875rem;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    svg { width: 100%; min-width: 900px; display: block; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+    .card-dot.orange { background: #fb923c; }
+    .card h3 { font-size: 0.875rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
+    .card li { margin-bottom: 0.375rem; }
+    .footer { text-align: center; margin-top: 1.5rem; color: #475569; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>CFW-51: Pi RPC Runner Architecture</h1>
+      </div>
+      <p class="subtitle">Adding Pi RPC as an alternative agent runner to Symphony-Go</p>
+    </div>
+
+    <!-- ============================================================
+         DIAGRAM 1: SYSTEM OVERVIEW (BEFORE vs AFTER)
+         ============================================================ -->
+    <div class="diagram-container">
+      <h2>System Overview — Runner Abstraction</h2>
+      <svg viewBox="0 0 1000 520">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrow-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <marker id="arrow-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
+          </marker>
+          <marker id="arrow-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
+          </marker>
+          <marker id="arrow-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
+          </marker>
+          <marker id="arrow-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb7185" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- ===== ARROWS (drawn first, behind boxes) ===== -->
+
+        <!-- Linear -> Orchestrator -->
+        <line x1="90" y1="260" x2="185" y2="260" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+        <text x="138" y="252" fill="#94a3b8" font-size="8" text-anchor="middle">poll</text>
+
+        <!-- Orchestrator -> AgentRunner interface -->
+        <line x1="340" y1="260" x2="418" y2="260" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="379" y="252" fill="#94a3b8" font-size="8" text-anchor="middle">Run()</text>
+
+        <!-- Interface -> Codex Runner -->
+        <line x1="570" y1="245" x2="640" y2="175" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+
+        <!-- Interface -> Pi Runner (NEW) -->
+        <line x1="570" y1="275" x2="640" y2="345" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+
+        <!-- Codex Runner -> Codex subprocess -->
+        <line x1="795" y1="165" x2="860" y2="165" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <text x="828" y="157" fill="#94a3b8" font-size="7" text-anchor="middle">JSONL</text>
+
+        <!-- Pi Runner -> Pi subprocess -->
+        <line x1="795" y1="355" x2="860" y2="355" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+        <text x="828" y="347" fill="#94a3b8" font-size="7" text-anchor="middle">JSONL</text>
+
+        <!-- Orchestrator -> Workspace Manager -->
+        <line x1="265" y1="290" x2="265" y2="380" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+
+        <!-- Codex Runner -> Workspace Manager -->
+        <path d="M 680 195 L 680 420 L 350 420 L 350 410" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Pi Runner -> Workspace Manager -->
+        <path d="M 680 385 L 680 440 L 350 440 L 350 410" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- ===== COMPONENTS ===== -->
+
+        <!-- Linear API (external) -->
+        <rect x="20" y="232" width="70" height="56" rx="6" fill="#0f172a"/>
+        <rect x="20" y="232" width="70" height="56" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="55" y="255" fill="white" font-size="10" font-weight="600" text-anchor="middle">Linear</text>
+        <text x="55" y="270" fill="#94a3b8" font-size="8" text-anchor="middle">GraphQL</text>
+
+        <!-- Orchestrator -->
+        <rect x="188" y="220" width="150" height="80" rx="6" fill="#0f172a"/>
+        <rect x="188" y="220" width="150" height="80" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="263" y="248" fill="white" font-size="11" font-weight="600" text-anchor="middle">Orchestrator</text>
+        <text x="263" y="264" fill="#94a3b8" font-size="8" text-anchor="middle">dispatch / retry</text>
+        <text x="263" y="278" fill="#94a3b8" font-size="8" text-anchor="middle">stall detect / reconcile</text>
+
+        <!-- AgentRunner Interface -->
+        <rect x="420" y="232" width="150" height="56" rx="6" fill="#0f172a"/>
+        <rect x="420" y="232" width="150" height="56" rx="6" fill="rgba(251, 146, 60, 0.15)" stroke="#fb923c" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="495" y="255" fill="#fb923c" font-size="10" font-weight="600" text-anchor="middle">AgentRunner</text>
+        <text x="495" y="271" fill="#94a3b8" font-size="8" text-anchor="middle">interface</text>
+
+        <!-- Codex Runner (existing) -->
+        <rect x="642" y="135" width="150" height="60" rx="6" fill="#0f172a"/>
+        <rect x="642" y="135" width="150" height="60" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="717" y="158" fill="white" font-size="10" font-weight="600" text-anchor="middle">Codex Runner</text>
+        <text x="717" y="173" fill="#94a3b8" font-size="8" text-anchor="middle">runner.Runner</text>
+        <text x="717" y="186" fill="#64748b" font-size="7" text-anchor="middle">existing</text>
+
+        <!-- Pi Runner (NEW) -->
+        <rect x="642" y="325" width="150" height="60" rx="6" fill="#0f172a"/>
+        <rect x="642" y="325" width="150" height="60" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="2"/>
+        <text x="717" y="348" fill="white" font-size="10" font-weight="600" text-anchor="middle">Pi Runner</text>
+        <text x="717" y="363" fill="#94a3b8" font-size="8" text-anchor="middle">runner.PiRunner</text>
+        <text x="717" y="376" fill="#34d399" font-size="7" text-anchor="middle">NEW</text>
+
+        <!-- Codex subprocess -->
+        <rect x="862" y="140" width="110" height="50" rx="6" fill="#0f172a"/>
+        <rect x="862" y="140" width="110" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="917" y="160" fill="white" font-size="9" font-weight="600" text-anchor="middle">codex</text>
+        <text x="917" y="174" fill="#94a3b8" font-size="7" text-anchor="middle">app-server</text>
+
+        <!-- Pi subprocess -->
+        <rect x="862" y="330" width="110" height="50" rx="6" fill="#0f172a"/>
+        <rect x="862" y="330" width="110" height="50" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="917" y="350" fill="white" font-size="9" font-weight="600" text-anchor="middle">pi</text>
+        <text x="917" y="364" fill="#94a3b8" font-size="7" text-anchor="middle">--mode rpc</text>
+
+        <!-- Workspace Manager -->
+        <rect x="200" y="385" width="150" height="50" rx="6" fill="#0f172a"/>
+        <rect x="200" y="385" width="150" height="50" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="275" y="405" fill="white" font-size="10" font-weight="600" text-anchor="middle">Workspace Mgr</text>
+        <text x="275" y="420" fill="#94a3b8" font-size="8" text-anchor="middle">create / hooks / cleanup</text>
+
+        <!-- Config selector label -->
+        <rect x="420" y="70" width="200" height="44" rx="6" fill="#0f172a"/>
+        <rect x="420" y="70" width="200" height="44" rx="6" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="520" y="88" fill="#fb7185" font-size="9" font-weight="600" text-anchor="middle">WORKFLOW.md config</text>
+        <text x="520" y="103" fill="#94a3b8" font-size="8" text-anchor="middle">runner: codex | pi</text>
+
+        <!-- Arrow from config to interface -->
+        <line x1="520" y1="114" x2="495" y2="230" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,4" marker-end="url(#arrow-rose)"/>
+        <text x="500" y="175" fill="#fb7185" font-size="7" text-anchor="middle">selects</text>
+
+        <!-- Legend -->
+        <text x="30" y="480" fill="white" font-size="10" font-weight="600">Legend</text>
+        <rect x="30" y="492" width="14" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="50" y="500" fill="#94a3b8" font-size="8">Core / Orchestrator</text>
+        <rect x="170" y="492" width="14" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="190" y="500" fill="#94a3b8" font-size="8">Existing (Codex)</text>
+        <rect x="300" y="492" width="14" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="2"/>
+        <text x="320" y="500" fill="#34d399" font-size="8">New (Pi)</text>
+        <rect x="400" y="492" width="14" height="10" rx="2" fill="rgba(251, 146, 60, 0.15)" stroke="#fb923c" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="420" y="500" fill="#94a3b8" font-size="8">Interface</text>
+        <rect x="510" y="492" width="14" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="530" y="500" fill="#94a3b8" font-size="8">Shared infra</text>
+      </svg>
+    </div>
+
+    <!-- ============================================================
+         DIAGRAM 2: PACKAGE STRUCTURE (BEFORE vs AFTER)
+         ============================================================ -->
+    <div class="diagram-container">
+      <h2>Package Structure — New Files</h2>
+      <svg viewBox="0 0 1000 420">
+        <defs>
+          <pattern id="grid2" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid2)" />
+
+        <!-- cmd/symphony boundary -->
+        <rect x="30" y="20" width="200" height="140" rx="8" fill="rgba(30, 41, 59, 0.15)" stroke="#475569" stroke-width="1" stroke-dasharray="6,3"/>
+        <text x="42" y="38" fill="#94a3b8" font-size="9" font-weight="600">cmd/symphony/</text>
+
+        <rect x="45" y="50" width="170" height="36" rx="4" fill="#0f172a"/>
+        <rect x="45" y="50" width="170" height="36" rx="4" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="130" y="67" fill="white" font-size="9" font-weight="500" text-anchor="middle">main.go</text>
+        <text x="130" y="79" fill="#fbbf24" font-size="7" text-anchor="middle">MODIFIED: runner switch</text>
+
+        <!-- internal/config boundary -->
+        <rect x="30" y="180" width="200" height="100" rx="8" fill="rgba(30, 41, 59, 0.15)" stroke="#475569" stroke-width="1" stroke-dasharray="6,3"/>
+        <text x="42" y="198" fill="#94a3b8" font-size="9" font-weight="600">internal/config/</text>
+
+        <rect x="45" y="210" width="170" height="36" rx="4" fill="#0f172a"/>
+        <rect x="45" y="210" width="170" height="36" rx="4" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="130" y="227" fill="white" font-size="9" font-weight="500" text-anchor="middle">config.go</text>
+        <text x="130" y="239" fill="#fbbf24" font-size="7" text-anchor="middle">MODIFIED: PiConfig + Runner</text>
+
+        <!-- internal/pi boundary (NEW) -->
+        <rect x="280" y="20" width="220" height="260" rx="8" fill="rgba(6, 78, 59, 0.1)" stroke="#34d399" stroke-width="1.5" stroke-dasharray="6,3"/>
+        <text x="292" y="38" fill="#34d399" font-size="9" font-weight="600">internal/pi/  NEW</text>
+
+        <rect x="295" y="50" width="190" height="50" rx="4" fill="#0f172a"/>
+        <rect x="295" y="50" width="190" height="50" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="390" y="70" fill="white" font-size="10" font-weight="600" text-anchor="middle">client.go</text>
+        <text x="390" y="84" fill="#94a3b8" font-size="7" text-anchor="middle">Pi RPC subprocess client</text>
+
+        <rect x="295" y="115" width="190" height="50" rx="4" fill="#0f172a"/>
+        <rect x="295" y="115" width="190" height="50" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="390" y="135" fill="white" font-size="10" font-weight="600" text-anchor="middle">client_test.go</text>
+        <text x="390" y="149" fill="#94a3b8" font-size="7" text-anchor="middle">fake-script driven tests</text>
+
+        <!-- internal/runner boundary -->
+        <rect x="550" y="20" width="220" height="260" rx="8" fill="rgba(30, 41, 59, 0.15)" stroke="#475569" stroke-width="1" stroke-dasharray="6,3"/>
+        <text x="562" y="38" fill="#94a3b8" font-size="9" font-weight="600">internal/runner/</text>
+
+        <rect x="565" y="50" width="190" height="36" rx="4" fill="#0f172a"/>
+        <rect x="565" y="50" width="190" height="36" rx="4" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="660" y="67" fill="white" font-size="9" font-weight="500" text-anchor="middle">runner.go</text>
+        <text x="660" y="79" fill="#64748b" font-size="7" text-anchor="middle">existing, unchanged</text>
+
+        <rect x="565" y="100" width="190" height="50" rx="4" fill="#0f172a"/>
+        <rect x="565" y="100" width="190" height="50" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="660" y="120" fill="white" font-size="10" font-weight="600" text-anchor="middle">pi_runner.go</text>
+        <text x="660" y="134" fill="#34d399" font-size="7" text-anchor="middle">NEW: AgentRunner for Pi</text>
+
+        <rect x="565" y="165" width="190" height="50" rx="4" fill="#0f172a"/>
+        <rect x="565" y="165" width="190" height="50" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="660" y="185" fill="white" font-size="10" font-weight="600" text-anchor="middle">pi_runner_test.go</text>
+        <text x="660" y="199" fill="#34d399" font-size="7" text-anchor="middle">NEW</text>
+
+        <!-- testdata boundary -->
+        <rect x="550" y="300" width="220" height="100" rx="8" fill="rgba(6, 78, 59, 0.1)" stroke="#34d399" stroke-width="1.5" stroke-dasharray="6,3"/>
+        <text x="562" y="318" fill="#34d399" font-size="9" font-weight="600">testdata/fake-pi/  NEW</text>
+
+        <rect x="565" y="328" width="90" height="28" rx="4" fill="#0f172a"/>
+        <rect x="565" y="328" width="90" height="28" rx="4" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="610" y="346" fill="#94a3b8" font-size="8" text-anchor="middle">success.sh</text>
+
+        <rect x="665" y="328" width="90" height="28" rx="4" fill="#0f172a"/>
+        <rect x="665" y="328" width="90" height="28" rx="4" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="710" y="346" fill="#94a3b8" font-size="8" text-anchor="middle">fail.sh</text>
+
+        <rect x="565" y="364" width="90" height="28" rx="4" fill="#0f172a"/>
+        <rect x="565" y="364" width="90" height="28" rx="4" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="610" y="382" fill="#94a3b8" font-size="8" text-anchor="middle">compaction.sh</text>
+
+        <rect x="665" y="364" width="90" height="28" rx="4" fill="#0f172a"/>
+        <rect x="665" y="364" width="90" height="28" rx="4" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="710" y="382" fill="#94a3b8" font-size="8" text-anchor="middle">retry.sh</text>
+
+        <!-- Unchanged packages note -->
+        <rect x="280" y="310" width="220" height="80" rx="6" fill="#0f172a"/>
+        <rect x="280" y="310" width="220" height="80" rx="6" fill="rgba(30, 41, 59, 0.3)" stroke="#475569" stroke-width="1"/>
+        <text x="390" y="332" fill="#64748b" font-size="9" font-weight="600" text-anchor="middle">Unchanged packages</text>
+        <text x="390" y="350" fill="#475569" font-size="8" text-anchor="middle">internal/orchestrator/</text>
+        <text x="390" y="364" fill="#475569" font-size="8" text-anchor="middle">internal/codex/</text>
+        <text x="390" y="378" fill="#475569" font-size="8" text-anchor="middle">internal/workspace/</text>
+
+        <!-- Legend -->
+        <text x="30" y="310" fill="white" font-size="9" font-weight="600">Legend</text>
+        <rect x="30" y="320" width="14" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="50" y="328" fill="#34d399" font-size="8">New file</text>
+        <rect x="30" y="338" width="14" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="50" y="346" fill="#94a3b8" font-size="8">Existing</text>
+        <rect x="30" y="356" width="14" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="50" y="364" fill="#fbbf24" font-size="8">Modified</text>
+      </svg>
+    </div>
+
+    <!-- ============================================================
+         DIAGRAM 3: DATA FLOW — Pi Runner Event Pipeline
+         ============================================================ -->
+    <div class="diagram-container">
+      <h2>Data Flow — Pi Runner Event Pipeline</h2>
+      <svg viewBox="0 0 1000 500">
+        <defs>
+          <pattern id="grid3" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid3)" />
+
+        <!-- ===== ARROWS (behind boxes) ===== -->
+
+        <!-- Prompt flow: Orchestrator -> PiRunner -> Pi Client -> Pi subprocess -->
+        <line x1="160" y1="80" x2="268" y2="80" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+        <text x="214" y="72" fill="#34d399" font-size="7" text-anchor="middle">Run(issue)</text>
+
+        <line x1="430" y1="80" x2="538" y2="80" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+        <text x="484" y="72" fill="#34d399" font-size="7" text-anchor="middle">SendPrompt()</text>
+
+        <line x1="700" y1="80" x2="808" y2="80" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <text x="754" y="72" fill="#22d3ee" font-size="7" text-anchor="middle">stdin JSONL</text>
+
+        <!-- Event return flow -->
+        <line x1="810" y1="105" x2="702" y2="105" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+        <text x="756" y="120" fill="#fb923c" font-size="7" text-anchor="middle">stdout JSONL</text>
+
+        <line x1="540" y1="105" x2="432" y2="105" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+        <text x="486" y="120" fill="#fb923c" font-size="7" text-anchor="middle">onUpdate()</text>
+
+        <line x1="270" y1="105" x2="162" y2="105" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+        <text x="216" y="120" fill="#fb923c" font-size="7" text-anchor="middle">AgentUpdate</text>
+
+        <!-- ===== COMPONENTS ===== -->
+
+        <!-- Orchestrator -->
+        <rect x="30" y="55" width="130" height="70" rx="6" fill="#0f172a"/>
+        <rect x="30" y="55" width="130" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="95" y="82" fill="white" font-size="10" font-weight="600" text-anchor="middle">Orchestrator</text>
+        <text x="95" y="97" fill="#94a3b8" font-size="7" text-anchor="middle">handleAgentUpdate()</text>
+        <text x="95" y="112" fill="#94a3b8" font-size="7" text-anchor="middle">stall / usage / turns</text>
+
+        <!-- Pi Runner -->
+        <rect x="270" y="55" width="160" height="70" rx="6" fill="#0f172a"/>
+        <rect x="270" y="55" width="160" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="2"/>
+        <text x="350" y="82" fill="white" font-size="10" font-weight="600" text-anchor="middle">PiRunner</text>
+        <text x="350" y="97" fill="#94a3b8" font-size="7" text-anchor="middle">workspace + hooks + prompt</text>
+        <text x="350" y="112" fill="#34d399" font-size="7" text-anchor="middle">NEW</text>
+
+        <!-- Pi Client -->
+        <rect x="540" y="55" width="160" height="70" rx="6" fill="#0f172a"/>
+        <rect x="540" y="55" width="160" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="2"/>
+        <text x="620" y="82" fill="white" font-size="10" font-weight="600" text-anchor="middle">Pi Client</text>
+        <text x="620" y="97" fill="#94a3b8" font-size="7" text-anchor="middle">event mapping / JSONL</text>
+        <text x="620" y="112" fill="#34d399" font-size="7" text-anchor="middle">NEW</text>
+
+        <!-- Pi subprocess -->
+        <rect x="810" y="55" width="160" height="70" rx="6" fill="#0f172a"/>
+        <rect x="810" y="55" width="160" height="70" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="890" y="82" fill="white" font-size="10" font-weight="600" text-anchor="middle">Pi subprocess</text>
+        <text x="890" y="97" fill="#94a3b8" font-size="7" text-anchor="middle">--mode rpc --no-session</text>
+
+        <!-- ===== EVENT MAPPING TABLE ===== -->
+        <rect x="30" y="165" width="940" height="315" rx="8" fill="rgba(15, 23, 42, 0.8)" stroke="#1e293b" stroke-width="1"/>
+
+        <!-- Header row -->
+        <rect x="30" y="165" width="940" height="30" rx="8" fill="rgba(30, 41, 59, 0.6)"/>
+        <rect x="30" y="185" width="940" height="10" fill="rgba(30, 41, 59, 0.6)"/>
+        <text x="60" y="184" fill="white" font-size="9" font-weight="700">Pi RPC Event</text>
+        <text x="280" y="184" fill="white" font-size="9" font-weight="700">AgentUpdate.Event</text>
+        <text x="500" y="184" fill="white" font-size="9" font-weight="700">Usage?</text>
+        <text x="620" y="184" fill="white" font-size="9" font-weight="700">Purpose</text>
+
+        <!-- Separator -->
+        <line x1="40" y1="198" x2="960" y2="198" stroke="#1e293b" stroke-width="1"/>
+
+        <!-- Row 1 -->
+        <text x="60" y="218" fill="#34d399" font-size="8">agent_start</text>
+        <text x="280" y="218" fill="white" font-size="8">session_started</text>
+        <text x="500" y="218" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="218" fill="#94a3b8" font-size="8">Agent begins processing prompt</text>
+
+        <!-- Row 2 -->
+        <text x="60" y="238" fill="#34d399" font-size="8">agent_end</text>
+        <text x="280" y="238" fill="white" font-size="8">turn_completed</text>
+        <text x="500" y="238" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="238" fill="#94a3b8" font-size="8">Terminal signal. Runner returns.</text>
+
+        <!-- Row 3 -->
+        <text x="60" y="258" fill="#22d3ee" font-size="8">turn_start</text>
+        <text x="280" y="258" fill="white" font-size="8">notification</text>
+        <text x="500" y="258" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="258" fill="#94a3b8" font-size="8">Internal turn boundary (heartbeat)</text>
+
+        <!-- Row 4 -->
+        <text x="60" y="278" fill="#22d3ee" font-size="8">turn_end</text>
+        <text x="280" y="278" fill="white" font-size="8">notification</text>
+        <text x="500" y="278" fill="#34d399" font-size="8" font-weight="600">YES</text>
+        <text x="620" y="278" fill="#94a3b8" font-size="8">Extract usage from message.usage</text>
+
+        <!-- Row 5 -->
+        <text x="60" y="298" fill="#22d3ee" font-size="8">tool_execution_start</text>
+        <text x="280" y="298" fill="white" font-size="8">notification</text>
+        <text x="500" y="298" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="298" fill="#94a3b8" font-size="8">Heartbeat during tool execution</text>
+
+        <!-- Row 6 -->
+        <text x="60" y="318" fill="#22d3ee" font-size="8">tool_execution_end</text>
+        <text x="280" y="318" fill="white" font-size="8">tool_call_completed</text>
+        <text x="500" y="318" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="318" fill="#94a3b8" font-size="8">Tool finished</text>
+
+        <!-- Row 7 -->
+        <text x="60" y="338" fill="#fbbf24" font-size="8">compaction_start</text>
+        <text x="280" y="338" fill="white" font-size="8">compaction_started</text>
+        <text x="500" y="338" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="338" fill="#fbbf24" font-size="8">Heartbeat: prevents stall false-positive</text>
+
+        <!-- Row 8 -->
+        <text x="60" y="358" fill="#fbbf24" font-size="8">compaction_end</text>
+        <text x="280" y="358" fill="white" font-size="8">compaction_ended</text>
+        <text x="500" y="358" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="358" fill="#fbbf24" font-size="8">Heartbeat: compaction done</text>
+
+        <!-- Row 9 -->
+        <text x="60" y="378" fill="#fbbf24" font-size="8">auto_retry_start</text>
+        <text x="280" y="378" fill="white" font-size="8">auto_retry_started</text>
+        <text x="500" y="378" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="378" fill="#fbbf24" font-size="8">Heartbeat: prevents stall false-positive</text>
+
+        <!-- Row 10 -->
+        <text x="60" y="398" fill="#fbbf24" font-size="8">auto_retry_end</text>
+        <text x="280" y="398" fill="white" font-size="8">auto_retry_ended</text>
+        <text x="500" y="398" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="398" fill="#fbbf24" font-size="8">Heartbeat: retry resolved</text>
+
+        <!-- Row 11 -->
+        <text x="60" y="418" fill="#64748b" font-size="8">message_update</text>
+        <text x="280" y="418" fill="#64748b" font-size="8">(ignored)</text>
+        <text x="500" y="418" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="418" fill="#64748b" font-size="8">Streaming deltas — too noisy</text>
+
+        <!-- Row 12 -->
+        <text x="60" y="438" fill="#64748b" font-size="8">extension_ui_request</text>
+        <text x="280" y="438" fill="#fb7185" font-size="8">auto-cancel</text>
+        <text x="500" y="438" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="438" fill="#fb7185" font-size="8">Respond with cancelled:true (headless)</text>
+
+        <!-- Row 13 -->
+        <text x="60" y="458" fill="#64748b" font-size="8">queue_update</text>
+        <text x="280" y="458" fill="#64748b" font-size="8">(ignored)</text>
+        <text x="500" y="458" fill="#64748b" font-size="8">-</text>
+        <text x="620" y="458" fill="#64748b" font-size="8">Not relevant to orchestrator</text>
+      </svg>
+    </div>
+
+    <!-- ============================================================
+         DIAGRAM 4: SHUTDOWN SEQUENCE
+         ============================================================ -->
+    <div class="diagram-container">
+      <h2>Graceful Shutdown — Pi vs Codex</h2>
+      <svg viewBox="0 0 1000 320">
+        <defs>
+          <pattern id="grid4" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid4)" />
+
+        <!-- ===== LEFT SIDE: CODEX SHUTDOWN ===== -->
+        <text x="180" y="30" fill="#22d3ee" font-size="11" font-weight="600" text-anchor="middle">Codex Shutdown</text>
+
+        <!-- Step boxes -->
+        <rect x="60" y="50" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="60" y="50" width="240" height="36" rx="4" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="180" y="68" fill="white" font-size="9" text-anchor="middle">1. ctx.Done() fires</text>
+        <text x="180" y="80" fill="#94a3b8" font-size="7" text-anchor="middle">SIGINT / SIGTERM received</text>
+
+        <line x1="180" y1="86" x2="180" y2="105" stroke="#22d3ee" stroke-width="1" marker-end="url(#arrow-cyan)"/>
+
+        <rect x="60" y="105" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="60" y="105" width="240" height="36" rx="4" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="180" y="123" fill="white" font-size="9" text-anchor="middle">2. Close stdin</text>
+        <text x="180" y="135" fill="#94a3b8" font-size="7" text-anchor="middle">session.Close()</text>
+
+        <line x1="180" y1="141" x2="180" y2="160" stroke="#22d3ee" stroke-width="1" marker-end="url(#arrow-cyan)"/>
+
+        <rect x="60" y="160" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="60" y="160" width="240" height="36" rx="4" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="180" y="178" fill="white" font-size="9" text-anchor="middle">3. Kill process (SIGKILL)</text>
+        <text x="180" y="190" fill="#fb7185" font-size="7" text-anchor="middle">immediate, may orphan work</text>
+
+        <!-- ===== RIGHT SIDE: PI SHUTDOWN ===== -->
+        <text x="720" y="30" fill="#34d399" font-size="11" font-weight="600" text-anchor="middle">Pi Shutdown</text>
+
+        <!-- Step boxes -->
+        <rect x="600" y="50" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="600" y="50" width="240" height="36" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="720" y="68" fill="white" font-size="9" text-anchor="middle">1. ctx.Done() fires</text>
+        <text x="720" y="80" fill="#94a3b8" font-size="7" text-anchor="middle">SIGINT / SIGTERM received</text>
+
+        <line x1="720" y1="86" x2="720" y2="105" stroke="#34d399" stroke-width="1" marker-end="url(#arrow-emerald)"/>
+
+        <rect x="600" y="105" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="600" y="105" width="240" height="36" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="720" y="123" fill="white" font-size="9" text-anchor="middle">2. Send {"type":"abort"}</text>
+        <text x="720" y="135" fill="#94a3b8" font-size="7" text-anchor="middle">Pi stops current work cleanly</text>
+
+        <line x1="720" y1="141" x2="720" y2="160" stroke="#34d399" stroke-width="1" marker-end="url(#arrow-emerald)"/>
+
+        <rect x="600" y="160" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="600" y="160" width="240" height="36" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="720" y="178" fill="white" font-size="9" text-anchor="middle">3. Wait up to 5s for agent_end</text>
+        <text x="720" y="190" fill="#94a3b8" font-size="7" text-anchor="middle">clean completion</text>
+
+        <line x1="720" y1="196" x2="720" y2="215" stroke="#34d399" stroke-width="1" marker-end="url(#arrow-emerald)"/>
+
+        <rect x="600" y="215" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="600" y="215" width="240" height="36" rx="4" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="720" y="233" fill="white" font-size="9" text-anchor="middle">4. Close stdin (Pi exits on EOF)</text>
+        <text x="720" y="245" fill="#94a3b8" font-size="7" text-anchor="middle">graceful process exit</text>
+
+        <line x1="720" y1="251" x2="720" y2="270" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-rose)"/>
+
+        <rect x="600" y="270" width="240" height="36" rx="4" fill="#0f172a"/>
+        <rect x="600" y="270" width="240" height="36" rx="4" fill="rgba(136, 19, 55, 0.3)" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="720" y="288" fill="#fb7185" font-size="9" text-anchor="middle">5. SIGKILL (only if timeout)</text>
+        <text x="720" y="300" fill="#64748b" font-size="7" text-anchor="middle">fallback, rarely needed</text>
+
+        <!-- VS divider -->
+        <line x1="460" y1="50" x2="460" y2="300" stroke="#1e293b" stroke-width="1" stroke-dasharray="6,4"/>
+        <text x="460" y="175" fill="#475569" font-size="10" font-weight="600" text-anchor="middle">vs</text>
+      </svg>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>New Components</h3>
+        </div>
+        <ul>
+          <li>• internal/pi/client.go — RPC client</li>
+          <li>• internal/runner/pi_runner.go — AgentRunner</li>
+          <li>• internal/pi/client_test.go</li>
+          <li>• internal/runner/pi_runner_test.go</li>
+          <li>• testdata/fake-pi/*.sh — 4 scripts</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>Modified Components</h3>
+        </div>
+        <ul>
+          <li>• config.go — PiConfig + Runner field</li>
+          <li>• main.go — runner switch logic</li>
+          <li>• config_test.go — new validation tests</li>
+          <li>• Zero changes to orchestrator</li>
+          <li>• Zero changes to codex package</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>Key Design Decisions</h3>
+        </div>
+        <ul>
+          <li>• One prompt per Run() — no multi-turn loop</li>
+          <li>• Heartbeat events prevent stall false-positives</li>
+          <li>• Auto-cancel extension UI dialogs</li>
+          <li>• Abort before kill for graceful shutdown</li>
+          <li>• No new Go dependencies</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">
+      CFW-51 • symphony-go • 2026-05-24
+    </p>
+  </div>
+</body>
+</html>
