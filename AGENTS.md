@@ -64,4 +64,4 @@ Upstream reference: [openai/symphony](https://github.com/openai/symphony). Key f
 
 ## ExecPlan
 
-Execution plans live in `docs/plans/`.
+Execution plans live in `docs/plans/`. See [`docs/plans/README.md`](docs/plans/README.md) for the index with status (active/completed).
