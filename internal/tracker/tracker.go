@@ -3,6 +3,7 @@ package tracker
 
 import (
 	"context"
+	"time"
 
 	"github.com/kwanpham2195/symphony-go/internal"
 )
@@ -22,4 +23,8 @@ type Tracker interface {
 	// FetchIssueStatesByIDs returns current issue data for specific IDs. Used
 	// for active-run reconciliation.
 	FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]internal.Issue, error)
+
+	// FetchRecentComments returns comments created after since for the given
+	// issue IDs. The returned map is keyed by issue ID.
+	FetchRecentComments(ctx context.Context, issueIDs []string, since time.Time) (map[string][]internal.Comment, error)
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 // loadFixture reads a JSON fixture file from testdata/.
@@ -401,4 +402,117 @@ func TestPagination_MissingCursor(t *testing.T) {
 	if !strings.Contains(err.Error(), "linear_missing_end_cursor") {
 		t.Errorf("expected missing cursor error, got: %v", err)
 	}
+}
+
+// --- Comment tests ---
+
+func TestFetchRecentComments(t *testing.T) {
+	fixture := loadFixture(t, "comments.json")
+	c := newTestClient(fakeDoRequest([]fakeResponse{{200, fixture}}, nil))
+
+	since := mustParseTime(t, "2026-05-25T09:00:00Z")
+	result, err := c.FetchRecentComments(context.Background(), []string{"issue-1", "issue-2"}, since)
+	if err != nil {
+		t.Fatalf("FetchRecentComments error: %v", err)
+	}
+
+	if len(result["issue-1"]) != 2 {
+		t.Fatalf("issue-1 comments = %d, want 2", len(result["issue-1"]))
+	}
+	c1 := result["issue-1"][0]
+	if c1.ID != "comment-1" || c1.Body != "Fix the failing test" {
+		t.Errorf("comment-1: id=%q body=%q", c1.ID, c1.Body)
+	}
+	if c1.UserID != "user-1" || c1.UserName != "Alice" {
+		t.Errorf("comment-1 user: id=%q name=%q", c1.UserID, c1.UserName)
+	}
+	if c1.BotActor {
+		t.Error("comment-1 should not be bot")
+	}
+
+	c2 := result["issue-1"][1]
+	if c2.ParentID != "comment-1" {
+		t.Errorf("comment-2 parent = %q, want comment-1", c2.ParentID)
+	}
+
+	if len(result["issue-2"]) != 1 {
+		t.Fatalf("issue-2 comments = %d, want 1", len(result["issue-2"]))
+	}
+	c3 := result["issue-2"][0]
+	if !c3.BotActor {
+		t.Error("comment-3 should be bot")
+	}
+}
+
+func TestFetchRecentComments_EmptyIDs(t *testing.T) {
+	c := newTestClient(nil)
+	result, err := c.FetchRecentComments(context.Background(), nil, mustParseTime(t, "2026-01-01T00:00:00Z"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestViewerID(t *testing.T) {
+	fixture := loadFixture(t, "viewer.json")
+	c := newTestClient(fakeDoRequest([]fakeResponse{{200, fixture}}, nil))
+
+	id, err := c.ViewerID(context.Background())
+	if err != nil {
+		t.Fatalf("ViewerID error: %v", err)
+	}
+	if id != "viewer-abc-123" {
+		t.Errorf("ViewerID = %q, want viewer-abc-123", id)
+	}
+}
+
+func TestResolveStateID(t *testing.T) {
+	fixture := loadFixture(t, "team_states.json")
+	c := newTestClient(fakeDoRequest([]fakeResponse{{200, fixture}}, nil))
+
+	id, err := c.ResolveStateID(context.Background(), "In Progress")
+	if err != nil {
+		t.Fatalf("ResolveStateID error: %v", err)
+	}
+	if id != "state-inprogress" {
+		t.Errorf("ResolveStateID = %q, want state-inprogress", id)
+	}
+}
+
+func TestResolveStateID_NotFound(t *testing.T) {
+	fixture := loadFixture(t, "team_states.json")
+	c := newTestClient(fakeDoRequest([]fakeResponse{{200, fixture}}, nil))
+
+	_, err := c.ResolveStateID(context.Background(), "Nonexistent")
+	if err == nil {
+		t.Fatal("expected error for missing state")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' error, got: %v", err)
+	}
+}
+
+func TestTransitionIssueState(t *testing.T) {
+	fixture := loadFixture(t, "transition.json")
+	var reqs []map[string]any
+	c := newTestClient(fakeDoRequest([]fakeResponse{{200, fixture}}, &reqs))
+
+	err := c.TransitionIssueState(context.Background(), "issue-1", "state-inprogress")
+	if err != nil {
+		t.Fatalf("TransitionIssueState error: %v", err)
+	}
+	if len(reqs) != 1 {
+		t.Fatalf("expected 1 request, got %d", len(reqs))
+	}
+}
+
+func mustParseTime(t *testing.T, s string) time.Time {
+	t.Helper()
+	ts, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t.Fatalf("parse time %q: %v", s, err)
+	}
+	return ts
 }

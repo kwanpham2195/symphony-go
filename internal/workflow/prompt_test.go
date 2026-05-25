@@ -3,6 +3,7 @@ package workflow
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kwanpham2195/symphony-go/internal"
 )
@@ -169,5 +170,66 @@ No description provided.
 	}
 	if !strings.Contains(out2, "retry attempt #2") {
 		t.Errorf("missing retry info, got:\n%s", out2)
+	}
+}
+
+func TestRenderPrompt_WithComments(t *testing.T) {
+	tmpl := `{% if comments %}Feedback:
+{% for c in comments %}
+{{ c.user_name }}: {{ c.body }}
+{% endfor %}{% else %}No comments.{% endif %}`
+
+	issue := internal.Issue{
+		ID:         "1",
+		Identifier: "SYM-50",
+		Title:      "Test",
+		State:      "In Progress",
+		TriggerComments: []internal.Comment{
+			{
+				ID:        "c-1",
+				Body:      "Fix the test",
+				UserName:  "Alice",
+				CreatedAt: time.Date(2026, 5, 25, 10, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:        "c-2",
+				Body:      "Also update docs",
+				UserName:  "Bob",
+				CreatedAt: time.Date(2026, 5, 25, 10, 5, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	out, err := RenderPrompt(tmpl, issue, nil)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if !strings.Contains(out, "Fix the test") {
+		t.Errorf("missing comment body")
+	}
+	if !strings.Contains(out, "Alice") {
+		t.Errorf("missing comment user name")
+	}
+	if !strings.Contains(out, "Also update docs") {
+		t.Errorf("missing second comment")
+	}
+}
+
+func TestRenderPrompt_NoComments(t *testing.T) {
+	tmpl := `{% if comments %}Has comments{% else %}No comments{% endif %}`
+
+	issue := internal.Issue{
+		ID:         "1",
+		Identifier: "SYM-51",
+		Title:      "Test",
+		State:      "In Progress",
+	}
+
+	out, err := RenderPrompt(tmpl, issue, nil)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	if !strings.Contains(out, "No comments") {
+		t.Errorf("expected 'No comments', got: %s", out)
 	}
 }

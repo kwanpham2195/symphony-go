@@ -471,3 +471,277 @@ func truncate(s string, maxLen int) string {
 	}
 	return s
 }
+
+// --- comment queries ---
+
+const commentsQuery = `
+query SymphonyComments($issueIDs: [ID!]!, $since: DateTime!, $first: Int!) {
+  issues(filter: {id: {in: $issueIDs}}, first: $first) {
+    nodes {
+      id
+      comments(filter: {createdAt: {gt: $since}}, first: 20, orderBy: createdAt) {
+        nodes {
+          id
+          body
+          createdAt
+          user { id name }
+          botActor { id name }
+          parent { id }
+        }
+      }
+    }
+  }
+}
+`
+
+// FetchRecentComments returns comments created after since for the given
+// issue IDs. The returned map is keyed by issue ID.
+func (c *Client) FetchRecentComments(ctx context.Context, issueIDs []string, since time.Time) (map[string][]internal.Comment, error) {
+	if len(issueIDs) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string][]internal.Comment)
+
+	for i := 0; i < len(issueIDs); i += issuePageSize {
+		end := i + issuePageSize
+		if end > len(issueIDs) {
+			end = len(issueIDs)
+		}
+		batch := issueIDs[i:end]
+
+		vars := map[string]any{
+			"issueIDs": batch,
+			"since":    since.Format(time.RFC3339),
+			"first":    len(batch),
+		}
+
+		body, err := c.doGraphQL(ctx, commentsQuery, vars)
+		if err != nil {
+			return nil, err
+		}
+
+		parsed, err := decodeCommentsResponse(body)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range parsed {
+			result[k] = append(result[k], v...)
+		}
+	}
+
+	return result, nil
+}
+
+type commentsGraphQLResponse struct {
+	Data   *commentsData  `json:"data"`
+	Errors []graphQLError `json:"errors"`
+}
+
+type commentsData struct {
+	Issues commentsIssueContainer `json:"issues"`
+}
+
+type commentsIssueContainer struct {
+	Nodes []commentsIssueNode `json:"nodes"`
+}
+
+type commentsIssueNode struct {
+	ID       string          `json:"id"`
+	Comments commentsWrapper `json:"comments"`
+}
+
+type commentsWrapper struct {
+	Nodes []rawComment `json:"nodes"`
+}
+
+type rawComment struct {
+	ID        string       `json:"id"`
+	Body      string       `json:"body"`
+	CreatedAt string       `json:"createdAt"`
+	User      *commentUser `json:"user"`
+	BotActor  *commentBot  `json:"botActor"`
+	Parent    *commentRef  `json:"parent"`
+}
+
+type commentUser struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type commentBot struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type commentRef struct {
+	ID string `json:"id"`
+}
+
+func decodeCommentsResponse(body json.RawMessage) (map[string][]internal.Comment, error) {
+	var resp commentsGraphQLResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("linear_comments_decode: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return nil, fmt.Errorf("linear_graphql_errors: %s", resp.Errors[0].Message)
+	}
+	if resp.Data == nil {
+		return nil, fmt.Errorf("linear_comments_decode: no data field")
+	}
+
+	result := make(map[string][]internal.Comment)
+	for _, issue := range resp.Data.Issues.Nodes {
+		for _, raw := range issue.Comments.Nodes {
+			comment := internal.Comment{
+				ID:      raw.ID,
+				Body:    raw.Body,
+				IssueID: issue.ID,
+			}
+			if raw.User != nil {
+				comment.UserID = raw.User.ID
+				comment.UserName = raw.User.Name
+			}
+			if raw.BotActor != nil {
+				comment.BotActor = true
+			}
+			if raw.Parent != nil {
+				comment.ParentID = raw.Parent.ID
+			}
+			if t, err := time.Parse(time.RFC3339, raw.CreatedAt); err == nil {
+				comment.CreatedAt = t
+			}
+			result[issue.ID] = append(result[issue.ID], comment)
+		}
+	}
+
+	return result, nil
+}
+
+// --- TrackerWriter implementation ---
+
+const viewerQuery = `query { viewer { id } }`
+
+// ViewerID returns the user ID of the authenticated API key owner.
+func (c *Client) ViewerID(ctx context.Context) (string, error) {
+	body, err := c.doGraphQL(ctx, viewerQuery, nil)
+	if err != nil {
+		return "", err
+	}
+
+	var resp struct {
+		Data *struct {
+			Viewer struct {
+				ID string `json:"id"`
+			} `json:"viewer"`
+		} `json:"data"`
+		Errors []graphQLError `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("linear_viewer_decode: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return "", fmt.Errorf("linear_graphql_errors: %s", resp.Errors[0].Message)
+	}
+	if resp.Data == nil {
+		return "", fmt.Errorf("linear_viewer_decode: no data field")
+	}
+	return resp.Data.Viewer.ID, nil
+}
+
+const teamStatesQuery = `
+query SymphonyTeamStates($projectSlug: String!) {
+  issues(filter: {project: {slugId: {eq: $projectSlug}}}, first: 1) {
+    nodes {
+      team {
+        states { nodes { id name } }
+      }
+    }
+  }
+}
+`
+
+// ResolveStateID maps a state name to a Linear workflow state UUID by
+// querying the team associated with the configured project.
+func (c *Client) ResolveStateID(ctx context.Context, stateName string) (string, error) {
+	vars := map[string]any{"projectSlug": c.ProjectSlug}
+	body, err := c.doGraphQL(ctx, teamStatesQuery, vars)
+	if err != nil {
+		return "", err
+	}
+
+	var resp struct {
+		Data *struct {
+			Issues struct {
+				Nodes []struct {
+					Team struct {
+						States struct {
+							Nodes []struct {
+								ID   string `json:"id"`
+								Name string `json:"name"`
+							} `json:"nodes"`
+						} `json:"states"`
+					} `json:"team"`
+				} `json:"nodes"`
+			} `json:"issues"`
+		} `json:"data"`
+		Errors []graphQLError `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("linear_states_decode: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return "", fmt.Errorf("linear_graphql_errors: %s", resp.Errors[0].Message)
+	}
+	if resp.Data == nil || len(resp.Data.Issues.Nodes) == 0 {
+		return "", fmt.Errorf("linear_resolve_state: no issues found for project %q", c.ProjectSlug)
+	}
+
+	target := strings.ToLower(strings.TrimSpace(stateName))
+	for _, s := range resp.Data.Issues.Nodes[0].Team.States.Nodes {
+		if strings.ToLower(strings.TrimSpace(s.Name)) == target {
+			return s.ID, nil
+		}
+	}
+	return "", fmt.Errorf("linear_resolve_state: state %q not found", stateName)
+}
+
+const transitionMutation = `
+mutation SymphonyTransition($id: String!, $stateId: String!) {
+  issueUpdate(id: $id, input: {stateId: $stateId}) {
+    success
+    issue { id state { name } }
+  }
+}
+`
+
+// TransitionIssueState moves an issue to the given state ID.
+func (c *Client) TransitionIssueState(ctx context.Context, issueID string, stateID string) error {
+	vars := map[string]any{
+		"id":      issueID,
+		"stateId": stateID,
+	}
+	body, err := c.doGraphQL(ctx, transitionMutation, vars)
+	if err != nil {
+		return err
+	}
+
+	var resp struct {
+		Data *struct {
+			IssueUpdate struct {
+				Success bool `json:"success"`
+			} `json:"issueUpdate"`
+		} `json:"data"`
+		Errors []graphQLError `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return fmt.Errorf("linear_transition_decode: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return fmt.Errorf("linear_graphql_errors: %s", resp.Errors[0].Message)
+	}
+	if resp.Data == nil || !resp.Data.IssueUpdate.Success {
+		return fmt.Errorf("linear_transition: issueUpdate returned success=false")
+	}
+	return nil
+}

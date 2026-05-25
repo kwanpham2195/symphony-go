@@ -29,6 +29,15 @@ type Tracker interface {
 	FetchCandidateIssues(ctx context.Context) ([]internal.Issue, error)
 	FetchIssuesByStates(ctx context.Context, states []string) ([]internal.Issue, error)
 	FetchIssueStatesByIDs(ctx context.Context, ids []string) ([]internal.Issue, error)
+	FetchRecentComments(ctx context.Context, issueIDs []string, since time.Time) (map[string][]internal.Comment, error)
+}
+
+// TrackerWriter is the issue tracker write interface. Optional; nil disables
+// comment-triggered dispatch.
+type TrackerWriter interface {
+	ViewerID(ctx context.Context) (string, error)
+	ResolveStateID(ctx context.Context, stateName string) (string, error)
+	TransitionIssueState(ctx context.Context, issueID string, stateID string) error
 }
 
 // WorkspaceManager handles workspace lifecycle.
@@ -62,12 +71,13 @@ type runningEntry struct {
 
 // Deps holds the orchestrator dependencies.
 type Deps struct {
-	Tracker    Tracker
-	Workspace  WorkspaceManager
-	Runner     AgentRunner
-	Config     *config.Config
-	Logger     *slog.Logger
-	WorkerPool *WorkerPool // optional; nil = local only
+	Tracker       Tracker
+	TrackerWriter TrackerWriter
+	Workspace     WorkspaceManager
+	Runner        AgentRunner
+	Config        *config.Config
+	Logger        *slog.Logger
+	WorkerPool    *WorkerPool // optional; nil = local only
 }
 
 // WorkerPool tracks SSH host capacity. Nil means local-only mode.
@@ -177,6 +187,7 @@ type Orchestrator struct {
 	stopped       bool
 	ctx           context.Context // lifecycle context; cancelled on shutdown
 	cancelCtx     context.CancelFunc
+	commentState  *commentState // nil if comments disabled
 }
 
 // New creates an orchestrator from deps.
@@ -207,6 +218,19 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 
 	o.startupCleanup(ctx)
 
+	// Initialize comment-triggered dispatch.
+	activeState := ""
+	if len(o.deps.Config.Tracker.ActiveStates) > 0 {
+		activeState = o.deps.Config.Tracker.ActiveStates[0]
+	}
+	o.commentState = initComments(ctx, commentsConfig{
+		enabled:           o.deps.Config.Comments.Enabled,
+		pollIntervalTicks: o.deps.Config.Comments.PollIntervalTicks,
+		lookbackMS:        o.deps.Config.Comments.LookbackMS,
+		reviewState:       o.deps.Config.Comments.ReviewState,
+		activeState:       activeState,
+	}, o.deps.TrackerWriter, o.logger)
+
 	// Immediate first tick
 	o.Tick(ctx)
 
@@ -235,9 +259,10 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	}
 }
 
-// Tick runs one poll cycle: reconcile, validate, fetch, dispatch.
+// Tick runs one poll cycle: reconcile, check comments, fetch, dispatch.
 func (o *Orchestrator) Tick(ctx context.Context) {
 	o.reconcile(ctx)
+	o.checkComments(ctx)
 
 	if err := o.deps.Config.Validate(); err != nil {
 		o.logger.Error("dispatch skipped: config validation failed", "error", err)

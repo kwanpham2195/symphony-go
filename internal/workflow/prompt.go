@@ -74,6 +74,20 @@ func buildBindings(issue internal.Issue, attempt *int) map[string]any {
 		bindings["attempt"] = *attempt
 	}
 
+	// Comment bindings: expose trigger comments as a list.
+	if len(issue.TriggerComments) > 0 {
+		comments := make([]map[string]any, len(issue.TriggerComments))
+		for i, c := range issue.TriggerComments {
+			comments[i] = map[string]any{
+				"id":         c.ID,
+				"body":       c.Body,
+				"user_name":  nilIfEmpty(c.UserName),
+				"created_at": c.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			}
+		}
+		bindings["comments"] = comments
+	}
+
 	return bindings
 }
 
