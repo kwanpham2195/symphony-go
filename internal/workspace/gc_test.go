@@ -453,6 +453,54 @@ func TestGC_MixedScenario(t *testing.T) {
 	}
 }
 
+// --- clampGCInterval ---
+
+func TestClampGCInterval_ZeroUsesDefault(t *testing.T) {
+	if got := clampGCInterval(0); got != minGCInterval {
+		t.Errorf("clampGCInterval(0) = %v, want %v", got, minGCInterval)
+	}
+}
+
+func TestClampGCInterval_NegativeUsesDefault(t *testing.T) {
+	if got := clampGCInterval(-5 * time.Second); got != minGCInterval {
+		t.Errorf("clampGCInterval(-5s) = %v, want %v", got, minGCInterval)
+	}
+}
+
+func TestClampGCInterval_PositivePassesThrough(t *testing.T) {
+	d := 30 * time.Minute
+	if got := clampGCInterval(d); got != d {
+		t.Errorf("clampGCInterval(%v) = %v, want %v", d, got, d)
+	}
+}
+
+// --- ctx cancellation in Collect ---
+
+func TestGC_CollectRespectsContextCancellation(t *testing.T) {
+	root := t.TempDir()
+	cfg := gcConfig(root)
+	cfg.GC.OrphanTTLMS = 1
+
+	// Create several orphan dirs past TTL.
+	for i := 0; i < 5; i++ {
+		makeDir(t, filepath.Join(root, "ORPHAN-"+string(rune('A'+i))), 2*time.Second)
+	}
+
+	checker := &fakeIssueChecker{}
+	gc := NewGC(cfg, checker, nil, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	result := gc.Collect(ctx)
+
+	// With an already-cancelled context, the loop should exit early.
+	// It may process zero or a few entries, but must not process all 5.
+	if len(result.OrphanDirs) == 5 {
+		t.Error("expected Collect to stop early on cancelled context")
+	}
+}
+
 // --- isSafeArtifactPattern ---
 
 func TestIsSafeArtifactPattern(t *testing.T) {

@@ -70,15 +70,27 @@ func (g *GC) config() *config.Config {
 	return g.cfg.Load()
 }
 
+// minGCInterval is the floor for the GC ticker. Prevents a panic from
+// time.NewTicker(0) when the user sets gc.interval_ms to zero or negative.
+const minGCInterval = time.Hour
+
+// clampGCInterval returns d if positive, otherwise minGCInterval.
+func clampGCInterval(d time.Duration) time.Duration {
+	if d <= 0 {
+		return minGCInterval
+	}
+	return d
+}
+
 // Start runs the GC loop until ctx is cancelled.
 // If GC is disabled in config, it idles but re-checks on each tick so
 // a dynamic config reload can enable it without a restart.
 func (g *GC) Start(ctx context.Context) {
 	cfg := g.config()
-	interval := time.Duration(cfg.GC.IntervalMS) * time.Millisecond
+	interval := clampGCInterval(time.Duration(cfg.GC.IntervalMS) * time.Millisecond)
 
 	g.logger.Info("workspace gc loop started",
-		"interval_ms", cfg.GC.IntervalMS,
+		"interval", interval,
 		"enabled", cfg.GC.Enabled,
 	)
 
@@ -96,8 +108,8 @@ func (g *GC) Start(ctx context.Context) {
 				continue
 			}
 
-			// Adjust interval if config changed
-			newInterval := time.Duration(curCfg.GC.IntervalMS) * time.Millisecond
+			// Adjust interval if config changed.
+			newInterval := clampGCInterval(time.Duration(curCfg.GC.IntervalMS) * time.Millisecond)
 			if newInterval != interval {
 				ticker.Reset(newInterval)
 				interval = newInterval
@@ -147,6 +159,9 @@ func (g *GC) Collect(ctx context.Context) GCResult {
 	artifactTTL := time.Duration(cfg.GC.ArtifactTTLMS) * time.Millisecond
 
 	for _, entry := range entries {
+		if ctx.Err() != nil {
+			return result
+		}
 		if !entry.IsDir() {
 			continue
 		}
