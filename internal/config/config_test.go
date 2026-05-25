@@ -49,6 +49,25 @@ func TestFromMap_Defaults(t *testing.T) {
 	if cfg.Server.Host != "127.0.0.1" {
 		t.Errorf("server.host = %q", cfg.Server.Host)
 	}
+	// GC defaults
+	if cfg.GC.Enabled {
+		t.Error("gc.enabled should default to false")
+	}
+	if cfg.GC.IntervalMS != 3600000 {
+		t.Errorf("gc.interval_ms = %d, want 3600000", cfg.GC.IntervalMS)
+	}
+	if cfg.GC.TTLMS != 86400000 {
+		t.Errorf("gc.ttl_ms = %d, want 86400000", cfg.GC.TTLMS)
+	}
+	if cfg.GC.OrphanTTLMS != 172800000 {
+		t.Errorf("gc.orphan_ttl_ms = %d, want 172800000", cfg.GC.OrphanTTLMS)
+	}
+	if cfg.GC.ArtifactTTLMS != 3600000 {
+		t.Errorf("gc.artifact_ttl_ms = %d, want 3600000", cfg.GC.ArtifactTTLMS)
+	}
+	if len(cfg.GC.ArtifactPatterns) != 2 || cfg.GC.ArtifactPatterns[0] != "node_modules" {
+		t.Errorf("gc.artifact_patterns = %v", cfg.GC.ArtifactPatterns)
+	}
 }
 
 func TestFromMap_Overrides(t *testing.T) {
@@ -525,5 +544,40 @@ func TestValidate_UnsupportedRunner(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unsupported runner") {
 		t.Fatalf("expected unsupported runner error, got: %v", err)
+	}
+}
+
+func TestFromMap_GCOverrides(t *testing.T) {
+	raw := map[string]any{
+		"gc": map[string]any{
+			"enabled":           true,
+			"interval_ms":       1800000,
+			"ttl_ms":            43200000,
+			"orphan_ttl_ms":     86400000,
+			"artifact_ttl_ms":   7200000,
+			"artifact_patterns": []any{"dist", "build"},
+		},
+	}
+	cfg, err := FromMap(raw)
+	if err != nil {
+		t.Fatalf("FromMap error: %v", err)
+	}
+	if !cfg.GC.Enabled {
+		t.Error("gc.enabled should be true")
+	}
+	if cfg.GC.IntervalMS != 1800000 {
+		t.Errorf("gc.interval_ms = %d, want 1800000", cfg.GC.IntervalMS)
+	}
+	if cfg.GC.TTLMS != 43200000 {
+		t.Errorf("gc.ttl_ms = %d, want 43200000", cfg.GC.TTLMS)
+	}
+	if cfg.GC.OrphanTTLMS != 86400000 {
+		t.Errorf("gc.orphan_ttl_ms = %d, want 86400000", cfg.GC.OrphanTTLMS)
+	}
+	if cfg.GC.ArtifactTTLMS != 7200000 {
+		t.Errorf("gc.artifact_ttl_ms = %d, want 7200000", cfg.GC.ArtifactTTLMS)
+	}
+	if len(cfg.GC.ArtifactPatterns) != 2 || cfg.GC.ArtifactPatterns[0] != "dist" {
+		t.Errorf("gc.artifact_patterns = %v, want [dist build]", cfg.GC.ArtifactPatterns)
 	}
 }

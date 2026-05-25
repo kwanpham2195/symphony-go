@@ -136,6 +136,21 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Build workspace GC before the watcher so the reload closure
+	// can reference it.
+	lockedFn := func() map[string]bool {
+		snap := orch.Snapshot()
+		locked := make(map[string]bool, len(snap.Running)+len(snap.Retrying))
+		for _, r := range snap.Running {
+			locked[workspace.SafeIdentifier(r.IssueIdentifier)] = true
+		}
+		for _, r := range snap.Retrying {
+			locked[workspace.SafeIdentifier(r.Identifier)] = true
+		}
+		return locked
+	}
+	wsGC := workspace.NewGC(cfg, tracker, lockedFn, logger)
+
 	// Start workflow file watcher for dynamic reload
 	wfWatcher, err := workflow.NewWatcher(path, func(newWF *internal.Workflow) {
 		newCfg, err := config.FromMap(newWF.Config)
@@ -155,6 +170,7 @@ func main() {
 		wsMgr.UpdateConfig(newCfg)
 		reloader.UpdateConfig(newCfg)
 		promptUp.UpdatePrompt(newWF.PromptTemplate)
+		wsGC.UpdateConfig(newCfg)
 		logger.Info("config reloaded from workflow")
 	}, logger)
 	if err != nil {
@@ -197,6 +213,9 @@ func main() {
 			}
 		}()
 	}
+
+	// Start workspace garbage collector
+	go wsGC.Start(ctx)
 
 	if err := orch.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		fatal("orchestrator: %v", err)

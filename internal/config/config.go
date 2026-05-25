@@ -43,6 +43,7 @@ type Config struct {
 	Codex     CodexConfig
 	Pi        PiConfig
 	Server    ServerConfig
+	GC        GCConfig
 }
 
 // TrackerConfig holds issue tracker settings.
@@ -104,6 +105,16 @@ type CodexConfig struct {
 type ServerConfig struct {
 	Port int // 0 = disabled, >0 = bind that port
 	Host string
+}
+
+// GCConfig holds workspace garbage collection settings.
+type GCConfig struct {
+	Enabled          bool
+	IntervalMS       int
+	TTLMS            int      // how long to keep terminal-issue workspaces
+	OrphanTTLMS      int      // how long to keep orphan workspaces
+	ArtifactTTLMS    int      // when to strip artifact dirs from terminal workspaces
+	ArtifactPatterns []string // directory names to strip (e.g. node_modules)
 }
 
 // PiConfig holds Pi RPC agent launch settings.
@@ -175,6 +186,12 @@ func (c *Config) applyDefaults() {
 	c.Pi.Command = "pi --mode rpc --no-session --no-extensions"
 	c.Pi.TurnTimeoutMS = 600000
 	c.Pi.ReadTimeoutMS = 30000
+	// GC defaults: disabled, 1h interval, 24h TTL, 48h orphan, 1h artifact
+	c.GC.IntervalMS = 3600000
+	c.GC.TTLMS = 86400000
+	c.GC.OrphanTTLMS = 172800000
+	c.GC.ArtifactTTLMS = 3600000
+	c.GC.ArtifactPatterns = []string{"node_modules", ".codex"}
 }
 
 // applyRaw overlays raw front-matter values onto the config, overriding
@@ -305,6 +322,27 @@ func (c *Config) applyRaw(raw map[string]any) {
 		}
 		if v, ok := getInt(pi, "read_timeout_ms"); ok {
 			c.Pi.ReadTimeoutMS = v
+		}
+	}
+
+	if gc, ok := getMap(raw, "gc"); ok {
+		if v, ok := getBool(gc, "enabled"); ok {
+			c.GC.Enabled = v
+		}
+		if v, ok := getInt(gc, "interval_ms"); ok {
+			c.GC.IntervalMS = v
+		}
+		if v, ok := getInt(gc, "ttl_ms"); ok {
+			c.GC.TTLMS = v
+		}
+		if v, ok := getInt(gc, "orphan_ttl_ms"); ok {
+			c.GC.OrphanTTLMS = v
+		}
+		if v, ok := getInt(gc, "artifact_ttl_ms"); ok {
+			c.GC.ArtifactTTLMS = v
+		}
+		if v, ok := getStringSlice(gc, "artifact_patterns"); ok {
+			c.GC.ArtifactPatterns = v
 		}
 	}
 }
@@ -443,6 +481,15 @@ func toInt(v any) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func getBool(m map[string]any, key string) (bool, bool) {
+	v, ok := m[key]
+	if !ok {
+		return false, false
+	}
+	b, ok := v.(bool)
+	return b, ok
 }
 
 func getStringSlice(m map[string]any, key string) ([]string, bool) {
