@@ -59,9 +59,6 @@ func TestFromMap_Defaults(t *testing.T) {
 	if cfg.GC.TTLMS != 86400000 {
 		t.Errorf("gc.ttl_ms = %d, want 86400000", cfg.GC.TTLMS)
 	}
-	if cfg.GC.OrphanTTLMS != 172800000 {
-		t.Errorf("gc.orphan_ttl_ms = %d, want 172800000", cfg.GC.OrphanTTLMS)
-	}
 	if cfg.GC.ArtifactTTLMS != 3600000 {
 		t.Errorf("gc.artifact_ttl_ms = %d, want 3600000", cfg.GC.ArtifactTTLMS)
 	}
@@ -553,7 +550,6 @@ func TestFromMap_GCOverrides(t *testing.T) {
 			"enabled":           true,
 			"interval_ms":       1800000,
 			"ttl_ms":            43200000,
-			"orphan_ttl_ms":     86400000,
 			"artifact_ttl_ms":   7200000,
 			"artifact_patterns": []any{"dist", "build"},
 		},
@@ -570,9 +566,6 @@ func TestFromMap_GCOverrides(t *testing.T) {
 	}
 	if cfg.GC.TTLMS != 43200000 {
 		t.Errorf("gc.ttl_ms = %d, want 43200000", cfg.GC.TTLMS)
-	}
-	if cfg.GC.OrphanTTLMS != 86400000 {
-		t.Errorf("gc.orphan_ttl_ms = %d, want 86400000", cfg.GC.OrphanTTLMS)
 	}
 	if cfg.GC.ArtifactTTLMS != 7200000 {
 		t.Errorf("gc.artifact_ttl_ms = %d, want 7200000", cfg.GC.ArtifactTTLMS)

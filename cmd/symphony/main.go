@@ -120,12 +120,13 @@ func main() {
 	}
 
 	orch := orchestrator.New(orchestrator.Deps{
-		Tracker:    tracker,
-		Workspace:  wsMgr,
-		Runner:     agentRunner,
-		Config:     cfg,
-		Logger:     logger,
-		WorkerPool: orchestrator.NewWorkerPool(cfg.Worker.SSHHosts, cfg.Worker.MaxConcurrentAgentsPerHost),
+		Tracker:       tracker,
+		TrackerWriter: tracker,
+		Workspace:     wsMgr,
+		Runner:        agentRunner,
+		Config:        cfg,
+		Logger:        logger,
+		WorkerPool:    orchestrator.NewWorkerPool(cfg.Worker.SSHHosts, cfg.Worker.MaxConcurrentAgentsPerHost),
 	})
 
 	if args.once {

@@ -1,0 +1,21 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "team": {
+            "states": {
+              "nodes": [
+                {"id": "state-backlog", "name": "Backlog"},
+                {"id": "state-todo", "name": "Todo"},
+                {"id": "state-inprogress", "name": "In Progress"},
+                {"id": "state-inreview", "name": "In Review"},
+                {"id": "state-done", "name": "Done"}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

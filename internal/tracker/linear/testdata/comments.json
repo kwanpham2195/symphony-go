@@ -1,0 +1,46 @@
+{
+  "data": {
+    "issues": {
+      "nodes": [
+        {
+          "id": "issue-1",
+          "comments": {
+            "nodes": [
+              {
+                "id": "comment-1",
+                "body": "Fix the failing test",
+                "createdAt": "2026-05-25T10:00:00Z",
+                "user": {"id": "user-1", "name": "Alice"},
+                "botActor": null,
+                "parent": null
+              },
+              {
+                "id": "comment-2",
+                "body": "Also update the docs",
+                "createdAt": "2026-05-25T10:05:00Z",
+                "user": {"id": "user-2", "name": "Bob"},
+                "botActor": null,
+                "parent": {"id": "comment-1"}
+              }
+            ]
+          }
+        },
+        {
+          "id": "issue-2",
+          "comments": {
+            "nodes": [
+              {
+                "id": "comment-3",
+                "body": "Bot notification",
+                "createdAt": "2026-05-25T10:10:00Z",
+                "user": null,
+                "botActor": {"id": "bot-1", "name": "CI Bot"},
+                "parent": null
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

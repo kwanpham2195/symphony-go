@@ -18,11 +18,11 @@ Also includes a GC simplification: stop treating non-terminal, non-active issues
 
 ## Progress
 
-- [ ] Milestone 1: GC simplification (remove orphan logic)
-- [ ] Milestone 2: Comment type + tracker interface + Linear implementation
-- [ ] Milestone 3: Orchestrator comment polling loop
-- [ ] Milestone 4: Prompt template comment bindings
-- [ ] Milestone 5: End-to-end verification
+- [x] Milestone 1: GC simplification (remove orphan logic)
+- [x] Milestone 2: Comment type + tracker interface + Linear implementation
+- [x] Milestone 3: Orchestrator comment polling loop
+- [x] Milestone 4: Prompt template comment bindings
+- [ ] Milestone 5: End-to-end verification (manual, requires live Linear)
 
 ## Surprises & Discoveries
 

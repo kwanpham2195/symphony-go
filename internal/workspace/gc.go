@@ -21,14 +21,12 @@ import (
 // IssueChecker is the minimal tracker interface for garbage collection.
 type IssueChecker interface {
 	FetchIssuesByStates(ctx context.Context, states []string) ([]internal.Issue, error)
-	FetchCandidateIssues(ctx context.Context) ([]internal.Issue, error)
 }
 
 // GCResult holds the outcome of a single garbage collection pass.
 type GCResult struct {
 	RemovedDirs  []string // workspace dirs fully removed (terminal)
 	ArtifactDirs []string // workspace dirs where artifacts were cleaned
-	OrphanDirs   []string // orphan workspace dirs removed
 	Errors       []error
 }
 
@@ -116,12 +114,11 @@ func (g *GC) Start(ctx context.Context) {
 			}
 
 			result := g.Collect(ctx)
-			total := len(result.RemovedDirs) + len(result.ArtifactDirs) + len(result.OrphanDirs)
+			total := len(result.RemovedDirs) + len(result.ArtifactDirs)
 			if total > 0 || len(result.Errors) > 0 {
 				g.logger.Info("workspace gc pass complete",
 					"removed", len(result.RemovedDirs),
 					"artifacts_cleaned", len(result.ArtifactDirs),
-					"orphans_removed", len(result.OrphanDirs),
 					"errors", len(result.Errors),
 				)
 			}
@@ -144,8 +141,8 @@ func (g *GC) Collect(ctx context.Context) GCResult {
 		return result
 	}
 
-	// Build identifier sets from the tracker.
-	terminalSet, activeSet, err := g.buildIdentifierSets(ctx, cfg)
+	// Build terminal set from the tracker.
+	terminalSet, err := g.buildTerminalSet(ctx, cfg)
 	if err != nil {
 		result.Errors = append(result.Errors, err)
 		return result
@@ -155,7 +152,6 @@ func (g *GC) Collect(ctx context.Context) GCResult {
 
 	now := time.Now()
 	ttl := time.Duration(cfg.GC.TTLMS) * time.Millisecond
-	orphanTTL := time.Duration(cfg.GC.OrphanTTLMS) * time.Millisecond
 	artifactTTL := time.Duration(cfg.GC.ArtifactTTLMS) * time.Millisecond
 
 	for _, entry := range entries {
@@ -182,46 +178,33 @@ func (g *GC) Collect(ctx context.Context) GCResult {
 		switch {
 		case terminalSet[name]:
 			g.handleTerminal(dirPath, name, age, ttl, artifactTTL, cfg, &result)
-		case activeSet[name]:
-			// Active workspace: never touch.
-			continue
 		default:
-			g.handleOrphan(dirPath, name, age, orphanTTL, &result)
+			// Active, in-review, or unknown: never touch.
+			continue
 		}
 	}
 
 	return result
 }
 
-// buildIdentifierSets fetches terminal and active issues from the tracker
-// and returns sets of SafeIdentifier values.
-func (g *GC) buildIdentifierSets(
+// buildTerminalSet fetches terminal issues from the tracker and returns a
+// set of SafeIdentifier values. Non-terminal workspaces are never touched.
+func (g *GC) buildTerminalSet(
 	ctx context.Context,
 	cfg *config.Config,
-) (terminal, active map[string]bool, err error) {
+) (map[string]bool, error) {
 	terminalIssues, err := g.checker.FetchIssuesByStates(ctx, cfg.Tracker.TerminalStates)
 	if err != nil {
 		g.logger.Warn("gc: fetch terminal issues failed", "error", err)
-		return nil, nil, err
+		return nil, err
 	}
 
-	activeIssues, err := g.checker.FetchCandidateIssues(ctx)
-	if err != nil {
-		g.logger.Warn("gc: fetch active issues failed", "error", err)
-		return nil, nil, err
-	}
-
-	terminal = make(map[string]bool, len(terminalIssues))
+	terminal := make(map[string]bool, len(terminalIssues))
 	for _, issue := range terminalIssues {
 		terminal[SafeIdentifier(issue.Identifier)] = true
 	}
 
-	active = make(map[string]bool, len(activeIssues))
-	for _, issue := range activeIssues {
-		active[SafeIdentifier(issue.Identifier)] = true
-	}
-
-	return terminal, active, nil
+	return terminal, nil
 }
 
 func (g *GC) lockedWorkspaces() map[string]bool {
@@ -256,22 +239,6 @@ func (g *GC) handleTerminal(
 		if g.cleanArtifacts(dirPath, name, cfg.GC.ArtifactPatterns) {
 			result.ArtifactDirs = append(result.ArtifactDirs, name)
 		}
-	}
-}
-
-// handleOrphan removes orphan workspaces past the orphan TTL.
-func (g *GC) handleOrphan(dirPath, name string, age, orphanTTL time.Duration, result *GCResult) {
-	if age < orphanTTL {
-		return
-	}
-	if err := os.RemoveAll(dirPath); err != nil {
-		g.logger.Warn("gc: remove orphan workspace failed",
-			"dir", name, "error", err)
-		result.Errors = append(result.Errors, err)
-	} else {
-		g.logger.Info("gc: removed orphan workspace",
-			"dir", name, "age_h", age.Hours())
-		result.OrphanDirs = append(result.OrphanDirs, name)
 	}
 }
 

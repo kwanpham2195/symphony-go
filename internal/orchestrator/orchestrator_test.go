@@ -58,6 +58,10 @@ func (f *fakeTracker) FetchIssueStatesByIDs(_ context.Context, ids []string) ([]
 	return out, nil
 }
 
+func (f *fakeTracker) FetchRecentComments(_ context.Context, _ []string, _ time.Time) (map[string][]internal.Comment, error) {
+	return nil, nil
+}
+
 type fakeWorkspace struct {
 	mu      sync.Mutex
 	created []string

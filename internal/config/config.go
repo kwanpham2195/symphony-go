@@ -44,6 +44,7 @@ type Config struct {
 	Pi        PiConfig
 	Server    ServerConfig
 	GC        GCConfig
+	Comments  CommentsConfig
 }
 
 // TrackerConfig holds issue tracker settings.
@@ -112,7 +113,6 @@ type GCConfig struct {
 	Enabled          bool
 	IntervalMS       int
 	TTLMS            int      // how long to keep terminal-issue workspaces
-	OrphanTTLMS      int      // how long to keep orphan workspaces
 	ArtifactTTLMS    int      // when to strip artifact dirs from terminal workspaces
 	ArtifactPatterns []string // directory names to strip (e.g. node_modules)
 }
@@ -122,6 +122,14 @@ type PiConfig struct {
 	Command       string
 	TurnTimeoutMS int
 	ReadTimeoutMS int
+}
+
+// CommentsConfig holds comment-triggered task settings.
+type CommentsConfig struct {
+	Enabled           bool
+	PollIntervalTicks int    // check every N ticks (default: 3)
+	LookbackMS        int    // startup lookback window (default: 300000 = 5min)
+	ReviewState       string // state to watch (default: "In Review")
 }
 
 // FromMap builds a Config from raw front matter map, applying defaults and
@@ -186,12 +194,15 @@ func (c *Config) applyDefaults() {
 	c.Pi.Command = "pi --mode rpc --no-session --no-extensions"
 	c.Pi.TurnTimeoutMS = 600000
 	c.Pi.ReadTimeoutMS = 30000
-	// GC defaults: disabled, 1h interval, 24h TTL, 48h orphan, 1h artifact
+	// GC defaults: disabled, 1h interval, 24h TTL, 1h artifact
 	c.GC.IntervalMS = 3600000
 	c.GC.TTLMS = 86400000
-	c.GC.OrphanTTLMS = 172800000
 	c.GC.ArtifactTTLMS = 3600000
 	c.GC.ArtifactPatterns = []string{"node_modules", ".codex"}
+	// Comments defaults: disabled, check every 3 ticks, 5 min lookback
+	c.Comments.PollIntervalTicks = 3
+	c.Comments.LookbackMS = 300000
+	c.Comments.ReviewState = "In Review"
 }
 
 // applyRaw overlays raw front-matter values onto the config, overriding
@@ -335,14 +346,26 @@ func (c *Config) applyRaw(raw map[string]any) {
 		if v, ok := getInt(gc, "ttl_ms"); ok {
 			c.GC.TTLMS = v
 		}
-		if v, ok := getInt(gc, "orphan_ttl_ms"); ok {
-			c.GC.OrphanTTLMS = v
-		}
 		if v, ok := getInt(gc, "artifact_ttl_ms"); ok {
 			c.GC.ArtifactTTLMS = v
 		}
 		if v, ok := getStringSlice(gc, "artifact_patterns"); ok {
 			c.GC.ArtifactPatterns = v
+		}
+	}
+
+	if comments, ok := getMap(raw, "comments"); ok {
+		if v, ok := getBool(comments, "enabled"); ok {
+			c.Comments.Enabled = v
+		}
+		if v, ok := getInt(comments, "poll_interval_ticks"); ok {
+			c.Comments.PollIntervalTicks = v
+		}
+		if v, ok := getInt(comments, "lookback_ms"); ok {
+			c.Comments.LookbackMS = v
+		}
+		if v, ok := getString(comments, "review_state"); ok {
+			c.Comments.ReviewState = v
 		}
 	}
 }
